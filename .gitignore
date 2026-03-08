@@ -1,7 +1,10 @@
 __pycache__/
+
+wandb/
+data/
+
+.env
+
 tmp/
 tests/
 notes/
-wandb/
-
-.env

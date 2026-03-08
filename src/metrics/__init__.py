@@ -1,3 +1,5 @@
-from .decoding_policy import extract_valid_logits
+from .generation_space import estimate_generation_space
 
-__all__ = ["extract_valid_logits"]
+__all__ = [
+    "estimate_generation_space",
+]

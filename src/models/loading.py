@@ -1,9 +1,19 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizerBase, PreTrainedModel
-from vllm import LLM, SamplingParams
+from vllm import LLM
 
 
 def load_tokenizer(model_path: str) -> PreTrainedTokenizerBase:
+    """
+    Loads a tokenizer and ensure a valid padding token is configured.
+
+    Args:
+        model_path: Local model path for tokenizer loading.
+
+    Returns:
+        Initialized tokenizer with `pad_token_id` set. If padding is missing,
+        `EOS` is reused as the pad token.
+    """
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -12,7 +22,16 @@ def load_tokenizer(model_path: str) -> PreTrainedTokenizerBase:
 
 
 def load_local_model(model_path: str, device: torch.device | str) -> PreTrainedModel:
-    """Loads a causal, moves it to device, and sets it to eval mode."""
+    """
+    Loads a local causal language model, moves it to device, and switches to eval mode.
+
+    Args:
+        model_path: Local model path for model loading.
+        device: Target device where the model should run.
+
+    Returns:
+        Initialized causal language model in evaluation mode.
+    """
     model = AutoModelForCausalLM.from_pretrained(model_path)
     if getattr(model.config, "pad_token_id", None) is None and model.config.eos_token_id is not None:
         model.config.pad_token_id = model.config.eos_token_id
@@ -31,14 +50,20 @@ def load_vllm_model(
     gpu_memory_utilization: float = 0.9,
     seed: int = 42,
 ) -> LLM:
-    """Initialize and return a vLLM LLM instance.
+    """
+    Initializes a vLLM engine for autoregressive generation.
 
     Args:
+        model_path: Local model path for vLLM odel loading.
         tensor_parallel_size: Number of GPUs to shard model weights across.
         max_model_len: Maximum supported context length (prompt + output).
         max_logprobs: Maximum number of token logprobs to retain per token.
-        logprobs_mode: "processed_logprobs" would return logprobs after processing.
+        logprobs_mode: Logprob output mode (for example, "processed_logprobs").
         gpu_memory_utilization: Fraction of each GPU memory budget available to vLLM.
+        seed: Random seed used by vLLM sampling.
+
+    Returns:
+        Initialized `LLM` instance.
     """
     llm = LLM(
         model=model_path,

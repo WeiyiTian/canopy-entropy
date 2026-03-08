@@ -5,6 +5,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from vllm import LLM, SamplingParams
 
+from .decoding_policy import normalize_scores
+
 
 def _sequence_lengths_from_generated_ids(
     generated_ids: torch.Tensor,
@@ -14,17 +16,17 @@ def _sequence_lengths_from_generated_ids(
     Computes the sequence lengths of model generations.
     
     Args:
-        generated_ids: Token ids of shape [B, T].
+        generated_ids: Token ids of shape [M, T].
         eos_token_id: EOS token id or list of EOS token ids.
     
     Returns:
-        sequence_lengths: Tensor of shape [B], 
+        sequence_lengths: Tensor of shape [M], 
             where the i-th item is the length of the i-th generated sequence.
 
     Notes: 
         Length includes the first EOS token when EOS is present.
     """
-    batch_size, max_steps = generated_ids.shape
+    _, max_steps = generated_ids.shape
 
     eos_ids = (
         torch.tensor([eos_token_id], device=generated_ids.device, dtype=generated_ids.dtype)
@@ -32,14 +34,14 @@ def _sequence_lengths_from_generated_ids(
         else torch.tensor(eos_token_id, device=generated_ids.device, dtype=generated_ids.dtype)
     )
 
-    # [B, T, 1] == [eos_num] => [B, T, eos_num] => [B, T]
+    # [M, T, 1] == [eos_num] => [M, T, eos_num] => [M, T]
     eos_mask = (generated_ids.unsqueeze(-1) == eos_ids).any(dim=-1)
-    has_eos = eos_mask.any(dim=-1) # [B]
-    first_eos_pos = eos_mask.to(dtype=torch.long).argmax(dim=-1) # [B], index of the first eos (True => 1)
+    has_eos = eos_mask.any(dim=-1) # [M]
+    first_eos_pos = eos_mask.to(dtype=torch.long).argmax(dim=-1) # [M], index of the first eos (True => 1)
     return torch.where(
         has_eos,
         first_eos_pos + 1,
-        torch.full_like(first_eos_pos, max_steps), # [B]
+        torch.full_like(first_eos_pos, max_steps), # [M]
     )
 
 
@@ -58,15 +60,15 @@ def _generate_local_step_scores(
     device: str | torch.device | None,
 ) -> tuple[list[str], list[torch.Tensor], torch.Tensor]:
     """
-    Generates B = `n_samples` completions from a local model for one prompt and returns:
-        generated_texts: List of B decoded strings.
-        sequence_step_logprobs: List of B tensors, where the i-th tensor has shape [T_i, V] 
-            and contains per-step vocabulary log probability scores.
-        sequence_lengths: Tensor of shape [B], where the i-th item is the length of the i-th generated sequence.
+    Generates M = `n_samples` completions from a local model for one prompt and returns:
+        generated_texts: List of M decoded strings.
+        sequence_step_logprobs: List of M tensors, where the i-th tensor has shape [T_i, V] 
+            and contains per-step vocabulary log probability scores that are processed and renormalized.
+        sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
 
     Notes:
         T_i: the length of the i-th generated sequence.
-        T_max: the length of the longest generated sequence among the B samples.
+        T_max: the length of the longest generated sequence among the M samples.
         K == `logprobs`: number of logits to keep per step.
     """
 
@@ -96,18 +98,18 @@ def _generate_local_step_scores(
     prompt_len = inputs["input_ids"].shape[1]
     generated_ids = outputs.sequences[:, prompt_len:]
     eos_token_id = getattr(model.generation_config, "eos_token_id", tokenizer.eos_token_id)
-    sequence_lengths = _sequence_lengths_from_generated_ids(generated_ids, eos_token_id=eos_token_id) # [B]
+    sequence_lengths = _sequence_lengths_from_generated_ids(generated_ids, eos_token_id=eos_token_id) # [M]
 
-    # [T_max, B, V] => [B, T_max, V]
+    # [T_max, M, V] => [M, T_max, V]
     all_scores = torch.stack(outputs.scores, dim=0).transpose(0, 1)
     all_logprobs = torch.log_softmax(all_scores, dim=-1)
 
-    # [B, T_max, K]
+    # [M, T_max, K]
     top_vals, _ = torch.topk(all_logprobs, k=logprobs, dim=-1)
 
     lengths = sequence_lengths.tolist()
-    # B x # [T_i, K]
-    sequence_step_logprobs = [top_vals[i, :l] for i, l in enumerate(lengths)]
+    # M x [T_i, K]
+    sequence_step_logprobs = [normalize_scores(top_vals[i, :l]) for i, l in enumerate(lengths)]
     
     generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
     return generated_texts, sequence_step_logprobs, sequence_lengths
@@ -144,11 +146,13 @@ def _generate_vllm_completions(
             seed=None if seed is None else seed + start,
             logprobs=logprobs,
         )
+
         request_output = llm.generate(
             prompts=[prompt],
             sampling_params=sampling_params,
             use_tqdm=False,
         )[0]
+        
         batch_outputs = request_output.outputs
         completion_outputs.extend(batch_outputs)
         generated_texts.extend(output.text for output in batch_outputs)
@@ -161,7 +165,7 @@ def _pad_vllm_step_scores(
     device: torch.device,
 ) -> torch.Tensor:
     """
-    Pads the i-th sequence's step logprobs to shape [T_i, K_i_max] with -inf.
+    Pads the i-th sequence's step logprobs to shape [T_i, K_i_max] with `-inf`.
     
     Args:
         step_logprobs_sequence: List of length T_i, where each item is a list of logprobs for that step.
@@ -212,15 +216,16 @@ def _generate_vllm_step_scores(
     device: torch.device | None,
 ) -> tuple[list[str], list[torch.Tensor], torch.Tensor]:
     """
-    Generates B = `n_samples` completions from a vLLM model and returns:
-        generated_texts: List of B decoded strings.
-        sequence_step_scores: List of B tensors, where the i-th tensor has shape [T_i, K_i_max] 
-            and contains per-step vocabulary scores.
-        sequence_lengths: Tensor of shape [B], where the i-th item is the length of the i-th generated sequence.
+    Generates M = `n_samples` completions from a vLLM model and returns:
+        generated_texts: List of M decoded strings.
+        sequence_step_scores: List of M tensors, where the i-th tensor has shape [T_i, K_i_max] 
+            and contains per-step vocabulary scores that are processed and renormalized.
+        sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
 
     Notes:
         T_i: the length of the i-th generated sequence.
         K_i_max: Maximum number of logprob candidates across all steps of the i-th sequence.
+        Seed is incremented by batch index.
     """
     completion_outputs, generated_texts = _generate_vllm_completions(
         prompt=prompt,
@@ -248,7 +253,7 @@ def _generate_vllm_step_scores(
     )
 
     sequence_step_scores = [
-        _pad_vllm_step_scores(output.logprobs, device=device)
+        normalize_scores(_pad_vllm_step_scores(output.logprobs, device=device))
         for output in completion_outputs
     ]
 
@@ -271,14 +276,33 @@ def generate_step_scores(
     device: str | torch.device | None = None,
 ) -> tuple[list[str], list[torch.Tensor], torch.Tensor]:
     """
-    Generates B = `n_samples` completions from either a local or vLLM model and returns:
-        generated_texts: List of B decoded strings.
-        sequence_step_scores: List of B tensors, where the i-th tensor has shape [T_i, K_i_max]
-            and contains per-step vocabulary scores.
-        sequence_lengths: Tensor of shape [B], where the i-th item is the length of the i-th generated sequence.
+    Generate sampled completions and per-step candidate scores for one prompt,
+    where the scores are post-processed and renormalized.
 
-    Notes:
-        K_i_max (<= V): Maximum number of logprob candidates across all steps of the i-th sequence.
+    Args:
+        prompt: Single input prompt string used for sampled generations.
+        model: Backend model instance. Use `AutoModelForCausalLM` with local backend
+            and `LLM` with vllm backend.
+        n_samples: Number of model completions to sample for the input prompt (M).
+        max_new_tokens: Maximum number of new generated tokens per completion.
+        backend: Generation backend, either local or vllm.
+        tokenizer: Tokenizer required only for the local backend.
+        temperature: Sampling temperature.
+        top_k: Top-k truncation parameter.
+        top_p: Nucleus sampling parameter.
+        seed: Random seed for sampling. For vLLM, seed is further incremented by batch index.
+        logprobs: Number of candidate-token scores to retain per step.
+        sample_batch_size: Batch size used only for vLLM sampling loops.
+        device: Device override. Backend-specific default device is used if not set.
+
+    Returns:
+        (generated_texts, sequence_step_scores, sequence_lengths): Tuple that contains
+        - generated_texts: List of M decoded strings.
+        - sequence_step_scores: List of length M. 
+            For local backend, the i-th tensor has shape [T_i, K], where `K == logprobs`.
+            For vLLM backend, the i-th tensor has shape [T_i, K_i_max], 
+                with missing candidates padded by `-inf` per sequence.
+        - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
     """
 
     if backend == "local":
