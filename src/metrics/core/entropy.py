@@ -37,11 +37,11 @@ def step_conditional_entropy_from_scores(scores: torch.Tensor) -> torch.Tensor:
     return -(finite_probs * finite_log_probs).sum(dim=-1)
 
 
-def expected_total_uncertainty_sequence_step_scores(
+def step_entropy_and_sequence_entropy(
     sequence_step_scores: list[torch.Tensor],
-) -> tuple[list[torch.Tensor], torch.Tensor, torch.Tensor]:
+) -> tuple[list[torch.Tensor], torch.Tensor]:
     """
-    Computes per-step conditional entropy, per-sequence total entropy, and TM*_max.
+    Computes per-step conditional entropy for each sequence and per-sequence total conditional entropy.
 
     Args:
         sequence_step_scores: List of length M. The i-th tensor has shape
@@ -50,13 +50,11 @@ def expected_total_uncertainty_sequence_step_scores(
             padded with `-inf`.
             
     Returns:
-        (step_entropy_per_sequence, sequence_entropy, tm_star_max): Tuple that contains
+        (step_entropy_per_sequence, sequence_entropy): Tuple that contains
         - step_entropy_per_sequence: List of length M. The i-th tensor has
             shape [T_i] with per-step entropies `H(Y^(i)_t | X, y^(i)_<t)`.
         - sequence_entropy: Tensor of shape [M], where entry i is the sum of
             step entropies of sequence i, i.e., `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-        - tm_star_max: Scalar tensor that represents the expected total uncertainty, i.e.,
-            the mean of the sequence entropies, i.e., `(1/M) * sum_i H^(i)_sum`.
     """
     device = sequence_step_scores[0].device
     sequence_entropy = torch.empty(
@@ -72,6 +70,4 @@ def expected_total_uncertainty_sequence_step_scores(
         # H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)
         sequence_entropy[sequence_idx] = step_entropy.sum()
 
-    # (1/M) * sum_i H^(i)_sum
-    tm_star_max = sequence_entropy.mean()
-    return step_entropy_per_sequence, sequence_entropy, tm_star_max
+    return step_entropy_per_sequence, sequence_entropy
