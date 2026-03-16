@@ -34,7 +34,7 @@ def step_conditional_entropy_from_scores(scores: torch.Tensor) -> torch.Tensor:
         torch.zeros_like(normalized_log_probs),
     )
     
-    return -(finite_probs * finite_log_probs).sum(dim=-1)
+    return -(finite_probs * finite_log_probs).sum(dim=-1).to(dtype=torch.float32)
 
 
 def step_entropy_and_sequence_entropy(

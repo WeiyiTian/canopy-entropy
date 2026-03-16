@@ -12,7 +12,7 @@ def calculate_tm_star_max(sequence_conditional_entropy: torch.Tensor) -> torch.T
     Returns:
         Scalar tensor `TM*_max = (1/M) * sum_i H^(i)_sum`.
     """
-    return sequence_conditional_entropy.to(dtype=torch.float32).mean()
+    return sequence_conditional_entropy.mean()
 
 
 def calculate_gen_ppl(tm_star_max: torch.Tensor, sequence_lengths: torch.Tensor) -> torch.Tensor:
@@ -28,7 +28,7 @@ def calculate_gen_ppl(tm_star_max: torch.Tensor, sequence_lengths: torch.Tensor)
     Returns:
         Scalar tensor representing `GenPPL_max = tm_star_max / mean_seq_len`.
     """
-    expected_length = sequence_lengths.to(dtype=torch.float32).mean()
+    expected_length = sequence_lengths.mean()
 
     entropy_rate_max = tm_star_max / expected_length
     gen_ppl_max = torch.exp(entropy_rate_max)

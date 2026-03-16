@@ -21,6 +21,34 @@ def load_tokenizer(model_path: str) -> PreTrainedTokenizerBase:
     return tokenizer
 
 
+def load_hf_model(
+    model_cls: type[PreTrainedModel],
+    model_path: str,
+    device: torch.device | str,
+    **kwargs,
+) -> PreTrainedModel:
+    """
+    Loads a Hugging Face model, ensures padding is configured, moves it to device,
+    and switches it to eval mode.
+
+    Args:
+        model_cls: Hugging Face model class with `from_pretrained`.
+        model_path: Local model path for model loading.
+        device: Target device where the model should run.
+        **kwargs: Additional kwargs forwarded to `from_pretrained`.
+
+    Returns:
+        Initialized Hugging Face model in evaluation mode.
+    """
+    model = model_cls.from_pretrained(model_path, **kwargs)
+    if getattr(model.config, "pad_token_id", None) is None and model.config.eos_token_id is not None:
+        model.config.pad_token_id = model.config.eos_token_id
+    model.to(device)
+    model.eval()
+
+    return model
+
+
 def load_local_model(model_path: str, device: torch.device | str) -> PreTrainedModel:
     """
     Loads a local causal language model, moves it to device, and switches to eval mode.
@@ -32,13 +60,7 @@ def load_local_model(model_path: str, device: torch.device | str) -> PreTrainedM
     Returns:
         Initialized causal language model in evaluation mode.
     """
-    model = AutoModelForCausalLM.from_pretrained(model_path)
-    if getattr(model.config, "pad_token_id", None) is None and model.config.eos_token_id is not None:
-        model.config.pad_token_id = model.config.eos_token_id
-    model.to(device)
-    model.eval()
-
-    return model
+    return load_hf_model(AutoModelForCausalLM, model_path, device=device)
 
 
 def load_vllm_model(

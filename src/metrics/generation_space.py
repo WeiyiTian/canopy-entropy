@@ -5,7 +5,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from vllm import LLM
 
 from ..models.inference import generate_step_scores
-from .core import (
+from .generation_tree import (
     calculate_prompt_controlled_diversity,
     calculate_rollout_summary,
     step_entropy_and_sequence_entropy,
@@ -150,22 +150,11 @@ def aggregate_generation_space_results(
 
     generated_texts = [text for result in prompt_results for text in result["generated_texts"]]
     step_entropy = [entropy for result in prompt_results for entropy in result["step_conditional_entropy"]]
-    sequence_entropy_chunks = [
-        result["sequence_conditional_entropy"].to(device="cpu")
-        for result in prompt_results
-    ]
-    sequence_length_chunks = [
-        result["sequence_lengths"].to(device="cpu")
-        for result in prompt_results
-    ]
-    prompt_correlations = [
-        result["diversity_correlation"].to(dtype=torch.float32, device="cpu")
-        for result in prompt_results
-    ]
-    prompt_covariances = [
-        result["diversity_covariance"].to(dtype=torch.float32, device="cpu")
-        for result in prompt_results
-    ]
+    
+    sequence_entropy_chunks = [result["sequence_conditional_entropy"] for result in prompt_results]
+    sequence_length_chunks = [result["sequence_lengths"] for result in prompt_results]
+    prompt_correlations = [result["diversity_correlation"] for result in prompt_results]
+    prompt_covariances = [result["diversity_covariance"] for result in prompt_results]
     prompt_sample_sizes = [lengths.numel() for lengths in sequence_length_chunks]
 
     sequence_entropy = torch.cat(sequence_entropy_chunks, dim=0)

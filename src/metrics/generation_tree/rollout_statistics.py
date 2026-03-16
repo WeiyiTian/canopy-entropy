@@ -4,45 +4,6 @@ from .branching_factor import calculate_branching_factor, calculate_diversity_co
 from .gen_ppl import calculate_gen_ppl, calculate_tm_star_max
 
 
-def calculate_rollout_summary(
-    sequence_entropy: torch.Tensor,
-    sequence_lengths: torch.Tensor,
-) -> dict[str, torch.Tensor]:
-    """
-    Computes scalar generation-space metrics from pooled rollout-level tensors.
-
-    Args:
-        sequence_entropy: Tensor of shape [M_total], where i-th entry is
-            `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-        sequence_lengths: Tensor of shape [M_total], where i-th entry is generated
-            token length `N^(i)`.
-
-    Returns:
-        dict: Dictionary with keys paired to scalar tensor values
-        - tm_star_max: `(1/M_total) * sum_i H^(i)_sum`.
-        - gen_ppl: `exp(tm_star_max / E[N])`.
-        - branching_factor: `exp((1/M_total) * sum_i r^(i)_N)`,
-            where `r^(i)_N = H^(i)_sum / N^(i)`.
-        - diversity_correlation: Pearson correlation over `(N^(i), r^(i)_N)`.
-        - diversity_covariance: Covariance over `(N^(i), r^(i)_N)`.
-    """
-    tm_star_max = calculate_tm_star_max(sequence_entropy)
-    gen_ppl = calculate_gen_ppl(tm_star_max, sequence_lengths)
-    branching_factor = calculate_branching_factor(sequence_entropy, sequence_lengths)
-    diversity_correlation, diversity_covariance = calculate_diversity_correlation(
-        sequence_entropy,
-        sequence_lengths,
-    )
-
-    return {
-        "tm_star_max": tm_star_max,
-        "gen_ppl": gen_ppl,
-        "branching_factor": branching_factor,
-        "diversity_correlation": diversity_correlation,
-        "diversity_covariance": diversity_covariance,
-    }
-
-
 def _weighted_nanmean(values: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
     """
     Computes a weighted mean while ignoring invalid entries.
@@ -67,6 +28,48 @@ def _weighted_nanmean(values: torch.Tensor, weights: torch.Tensor) -> torch.Tens
         return (safe_values * safe_weights).sum() / total_weight
 
     return torch.nanmean(values)
+
+
+def calculate_rollout_summary(
+    sequence_entropy: torch.Tensor,
+    sequence_lengths: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    """
+    Computes scalar generation-space metrics from pooled rollout-level tensors.
+
+    Args:
+        sequence_entropy: Tensor of shape [M_total], where i-th entry is
+            `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
+        sequence_lengths: Tensor of shape [M_total], where i-th entry is generated
+            token length `N^(i)`.
+
+    Returns:
+        dict: Dictionary with keys paired to scalar tensor values
+        - tm_star_max: `(1/M_total) * sum_i H^(i)_sum`.
+        - gen_ppl: `exp(tm_star_max / E[N])`.
+        - branching_factor: `exp((1/M_total) * sum_i r^(i)_N)`,
+            where `r^(i)_N = H^(i)_sum / N^(i)`.
+        - diversity_correlation: Pearson correlation over `(N^(i), r^(i)_N)`.
+        - diversity_covariance: Covariance over `(N^(i), r^(i)_N)`.
+    """
+    sequence_entropy = sequence_entropy.to(dtype=torch.float32)
+    sequence_lengths = sequence_lengths.to(dtype=torch.float32)
+
+    tm_star_max = calculate_tm_star_max(sequence_entropy)
+    gen_ppl = calculate_gen_ppl(tm_star_max, sequence_lengths)
+    branching_factor = calculate_branching_factor(sequence_entropy, sequence_lengths)
+    diversity_correlation, diversity_covariance = calculate_diversity_correlation(
+        sequence_entropy,
+        sequence_lengths,
+    )
+
+    return {
+        "tm_star_max": tm_star_max,
+        "gen_ppl": gen_ppl,
+        "branching_factor": branching_factor,
+        "diversity_correlation": diversity_correlation,
+        "diversity_covariance": diversity_covariance,
+    }
 
 
 def calculate_prompt_controlled_diversity(
@@ -100,9 +103,13 @@ def calculate_prompt_controlled_diversity(
         - diversity_covariance: Prompt-controlled aggregate covariance.
     """
 
-    correlation_tensor = torch.stack(correlations).to(dtype=torch.float32) # [P]
-    covariance_tensor = torch.stack(covariances).to(dtype=torch.float32) # [P]
-    sample_size_tensor = torch.as_tensor(sample_sizes, dtype=torch.float32) # [P]
+    correlation_tensor = torch.stack(correlations) # [P]
+    covariance_tensor = torch.stack(covariances) # [P]
+    sample_size_tensor = torch.as_tensor(
+        sample_sizes,
+        dtype=correlation_tensor.dtype,
+        device=correlation_tensor.device,
+    ) # [P]
 
     fisher_weights = (sample_size_tensor - 3.0).clamp_min(0.0)
     clipped_correlation = correlation_tensor.clamp(min=-0.999999, max=0.999999)

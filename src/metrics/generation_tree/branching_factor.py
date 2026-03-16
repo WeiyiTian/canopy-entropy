@@ -19,8 +19,8 @@ def _calculate_rollout_average_uncertainty(
         Tensor of shape [M] where i-th entry is sequence_conditional_entropy[i] / sequence_lengths[i],
         i.e., `r^(i)_N = H^(i)_sum / N^(i)`.
     """
-    safe_lengths = sequence_lengths.to(dtype=torch.float32).clamp(min=1.0)
-    return sequence_conditional_entropy.to(dtype=torch.float32) / safe_lengths
+    safe_lengths = sequence_lengths.clamp(min=1.0)
+    return sequence_conditional_entropy / safe_lengths
 
 
 def calculate_branching_factor(
@@ -67,14 +67,13 @@ def calculate_diversity_correlation(
         - pearson_correlation: Scalar tensor `rho(N, r_N)` over rollout pairs `(N^(i), r^(i)_N)`.
         - covariance: Scalar tensor `Cov(N, r_N)` over rollout pairs `(N^(i), r^(i)_N)`.
     """
-    lengths = sequence_lengths.to(dtype=torch.float32)
     # [M], i-th entry is r^(i)_N = H^(i)_sum / N^(i)
     rollout_average_uncertainty = _calculate_rollout_average_uncertainty(
         sequence_conditional_entropy, sequence_lengths
     )
 
     #[2, M]
-    rollout_pairs = torch.stack([lengths, rollout_average_uncertainty], dim=0)
+    rollout_pairs = torch.stack([sequence_lengths, rollout_average_uncertainty], dim=0)
     covariance = torch.cov(rollout_pairs, correction=1)[0, 1]
     pearson_correlation = torch.corrcoef(rollout_pairs)[0, 1]
     return pearson_correlation, covariance
