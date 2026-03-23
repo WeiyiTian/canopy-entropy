@@ -26,7 +26,7 @@ def calculate_gen_ppl(tm_star_max: torch.Tensor, sequence_lengths: torch.Tensor)
             token length of rollout i, `N^(i)`.
 
     Returns:
-        Scalar tensor representing `GenPPL_max = tm_star_max / mean_seq_len`.
+        Scalar tensor representing `GenPPL_max = exp(tm_star_max / mean_seq_len)`.
     """
     expected_length = sequence_lengths.mean()
 

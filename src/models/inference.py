@@ -58,13 +58,15 @@ def _generate_local_step_scores(
     seed: int | None,
     logprobs: int,
     device: str | torch.device | None,
-) -> tuple[list[str], list[torch.Tensor], torch.Tensor]:
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
     Generates M = `n_samples` completions from a local model for one prompt and returns:
         generated_texts: List of M decoded strings.
         sequence_step_logprobs: List of M tensors, where the i-th tensor has shape [T_i, V] 
             and contains per-step vocabulary log probability scores that are processed and renormalized.
         sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
+        generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
+            and contains the exact generated token ids up to the first EOS (inclusive when present).
 
     Notes:
         T_i: the length of the i-th generated sequence.
@@ -110,9 +112,10 @@ def _generate_local_step_scores(
     lengths = sequence_lengths.tolist()
     # M x [T_i, K]
     sequence_step_logprobs = [normalize_scores(top_vals[i, :l]) for i, l in enumerate(lengths)]
+    generated_token_ids = [generated_ids[i, :l].clone() for i, l in enumerate(lengths)]
     
     generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-    return generated_texts, sequence_step_logprobs, sequence_lengths
+    return generated_texts, sequence_step_logprobs, sequence_lengths, generated_token_ids
 
 
 def _generate_vllm_completions(
@@ -214,13 +217,15 @@ def _generate_vllm_step_scores(
     logprobs: int,
     sample_batch_size: int,
     device: torch.device | None,
-) -> tuple[list[str], list[torch.Tensor], torch.Tensor]:
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
     Generates M = `n_samples` completions from a vLLM model and returns:
         generated_texts: List of M decoded strings.
         sequence_step_scores: List of M tensors, where the i-th tensor has shape [T_i, K_i_max] 
             and contains per-step vocabulary scores that are processed and renormalized.
         sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
+        generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
+            and contains the exact generated token ids returned by vLLM.
 
     Notes:
         T_i: the length of the i-th generated sequence.
@@ -251,13 +256,17 @@ def _generate_vllm_step_scores(
         dtype=torch.long,
         device=device,
     )
+    generated_token_ids = [
+        torch.tensor(output.token_ids, dtype=torch.long, device=device)
+        for output in completion_outputs
+    ]
 
     sequence_step_scores = [
         normalize_scores(_pad_vllm_step_scores(output.logprobs, device=device))
         for output in completion_outputs
     ]
 
-    return generated_texts, sequence_step_scores, sequence_lengths
+    return generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids
 
 
 def generate_step_scores(
@@ -274,7 +283,7 @@ def generate_step_scores(
     logprobs: int = -1,
     sample_batch_size: int = 8,
     device: str | torch.device | None = None,
-) -> tuple[list[str], list[torch.Tensor], torch.Tensor]:
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
     Generate sampled completions and per-step candidate scores for one prompt,
     where the scores are post-processed and renormalized.
@@ -296,13 +305,15 @@ def generate_step_scores(
         device: Device override. Backend-specific default device is used if not set.
 
     Returns:
-        (generated_texts, sequence_step_scores, sequence_lengths): Tuple that contains
+        (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids): Tuple that contains
         - generated_texts: List of M decoded strings.
         - sequence_step_scores: List of length M. 
             For local backend, the i-th tensor has shape [T_i, K], where `K == logprobs`.
             For vLLM backend, the i-th tensor has shape [T_i, K_i_max], 
                 with missing candidates padded by `-inf` per sequence.
         - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
+        - generated_token_ids: List of length M. The i-th tensor has shape [T_i]
+            and stores the exact generated token ids aligned with the saved rollout.
     """
 
     if backend == "local":
