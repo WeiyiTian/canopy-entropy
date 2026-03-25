@@ -1,5 +1,7 @@
+from typing import Literal
+
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizerBase, PreTrainedModel
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizerBase
 from vllm import LLM
 
 
@@ -76,7 +78,7 @@ def load_vllm_model(
     Initializes a vLLM engine for autoregressive generation.
 
     Args:
-        model_path: Local model path for vLLM odel loading.
+        model_path: Local model path for vLLM model loading.
         tensor_parallel_size: Number of GPUs to shard model weights across.
         max_model_len: Maximum supported context length (prompt + output).
         max_logprobs: Maximum number of token logprobs to retain per token.
@@ -97,3 +99,48 @@ def load_vllm_model(
         seed=seed
     )
     return llm
+
+
+def load_generation_backend(
+    model_path: str,
+    backend: Literal["local", "vllm"],
+    device: str,
+    tensor_parallel_size: int,
+    max_model_len: int,
+    max_logprobs: int,
+    gpu_memory_utilization: float,
+    seed: int,
+) -> tuple[PreTrainedModel | LLM, PreTrainedTokenizerBase | None]:
+    """
+    Loads the configured generation backend and any tokenizer it requires.
+
+    Args:
+        model_path: Local model path used to initialize the generation backend.
+        backend: Generation backend, either local or vllm.
+        device: Target device where the model should run.
+        tensor_parallel_size: Number of GPUs to shard model weights across for vLLM.
+        max_model_len: Maximum supported context length (prompt + output) for vLLM.
+        max_logprobs: Maximum number of token logprobs to retain per token for vLLM.
+        gpu_memory_utilization: Fraction of each GPU memory budget available to vLLM.
+        seed: Random seed used by vLLM sampling.
+
+    Returns:
+        (model, tokenizer): The tokenizer is `None` for the vLLM backend.
+    """
+    if backend == "local":
+        tokenizer = load_tokenizer(model_path)
+        model = load_local_model(model_path, device)
+        return model, tokenizer
+    
+    elif backend == "vllm":
+        model = load_vllm_model(
+            model_path=model_path,
+            tensor_parallel_size=tensor_parallel_size,
+            max_model_len=max_model_len,
+            max_logprobs=max_logprobs,
+            gpu_memory_utilization=gpu_memory_utilization,
+            seed=seed,
+        )
+        return model, None
+
+    raise ValueError("backend must be one of {'local', 'vllm'}")

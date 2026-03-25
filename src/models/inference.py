@@ -225,7 +225,7 @@ def _generate_vllm_step_scores(
             and contains per-step vocabulary scores that are processed and renormalized.
         sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
         generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
-            and contains the exact generated token ids returned by vLLM.
+            and contains the generated token ids returned by vLLM.
 
     Notes:
         T_i: the length of the i-th generated sequence.
@@ -256,6 +256,7 @@ def _generate_vllm_step_scores(
         dtype=torch.long,
         device=device,
     )
+
     generated_token_ids = [
         torch.tensor(output.token_ids, dtype=torch.long, device=device)
         for output in completion_outputs
@@ -313,7 +314,7 @@ def generate_step_scores(
                 with missing candidates padded by `-inf` per sequence.
         - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
         - generated_token_ids: List of length M. The i-th tensor has shape [T_i]
-            and stores the exact generated token ids aligned with the saved rollout.
+            and stores the generated token ids aligned with the saved rollout.
     """
 
     if backend == "local":
@@ -333,7 +334,7 @@ def generate_step_scores(
             device=device,
         )
 
-    if backend == "vllm":
+    elif backend == "vllm":
         return _generate_vllm_step_scores(
             prompt=prompt,
             llm=model,
