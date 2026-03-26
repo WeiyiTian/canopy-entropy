@@ -5,8 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings:
-    model_path = os.getenv("MODEL_PATH")
-    results_path = os.getenv("RESULTS_PATH")
-    data_path = os.getenv("DATA_PATH")
+    data_dir = os.getenv("DATA_DIR")
+    model_dir = os.getenv("MODEL_DIR")
+    outputs_dir = os.getenv("OUTPUTS_DIR")
+    results_dir = os.getenv("RESULTS_DIR")
 
 settings = Settings()
