@@ -313,7 +313,7 @@ def generate_step_scores(
             For vLLM backend, the i-th tensor has shape [T_i, K_i_max], 
                 with missing candidates padded by `-inf` per sequence.
         - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
-        - generated_token_ids: List of length M. The i-th tensor has shape [T_i]
+        - sequence_lengths: List of length M. The i-th tensor has shape [T_i]
             and stores the generated token ids aligned with the saved rollout.
     """
 
