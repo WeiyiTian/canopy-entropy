@@ -8,48 +8,126 @@ from vllm import LLM, SamplingParams
 from .decoding_policy import normalize_scores
 
 
-def _sequence_lengths_from_generated_ids(
-    generated_ids: torch.Tensor,
-    eos_token_id: int | list[int],
-) -> torch.Tensor:
+def generate_step_scores(
+    prompt: str,
+    model: AutoModelForCausalLM | LLM,
+    n_samples: int,
+    max_new_tokens: int,
+    backend: Literal["local", "vllm"],
+    tokenizer: AutoTokenizer | None = None,
+    temperature: float = 1.0,
+    top_k: int | None = 0,
+    top_p: float | None = 1.0,
+    seed: int | None = 42,
+    logprobs: int = -1,
+    sample_batch_size: int = 8,
+    device: str | torch.device | None = None,
+    enable_thinking: bool | None = None,
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
-    Computes the sequence lengths of model generations.
-    
+    Generates sampled completions and per-step candidate scores for one prompt,
+    where the scores are post-processed and renormalized.
+
     Args:
-        generated_ids: Token ids of shape [M, T].
-        eos_token_id: EOS token id or list of EOS token ids.
-    
+        prompt: Single input prompt string used for sampled generations.
+        model: Backend model instance. Use `AutoModelForCausalLM` with local backend
+            and `LLM` with vllm backend.
+        n_samples: Number of model completions to sample for the input prompt (M).
+        max_new_tokens: Maximum number of new generated tokens per completion.
+        backend: Generation backend, either local or vllm.
+        tokenizer: Tokenizer required only for the local backend.
+        temperature: Sampling temperature.
+        top_k: Top-k truncation parameter.
+        top_p: Nucleus sampling parameter.
+        seed: Random seed for sampling. For vLLM, seed is further incremented by batch index.
+        logprobs: Number of candidate-token scores to retain per step.
+        sample_batch_size: Batch size used only for vLLM sampling loops.
+        device: Device override. Backend-specific default device is used if not set.
+        enable_thinking: Optional chat-template hint for models that advertise
+            reasoning-mode control through `enable_thinking`.
+
     Returns:
-        sequence_lengths: Tensor of shape [M], 
-            where the i-th item is the length of the i-th generated sequence.
-
-    Notes: 
-        Length includes the first EOS token when EOS is present.
+        (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids): Tuple that contains
+        - generated_texts: List of M decoded strings.
+        - sequence_step_scores: List of length M. 
+            For local backend, the i-th tensor has shape [T_i, K], where `K == logprobs`.
+            For vLLM backend, the i-th tensor has shape [T_i, K_i_max], 
+                with missing candidates padded by `-inf` per sequence.
+        - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
+        - generated_token_ids: List of length M. The i-th tensor has shape [T_i]
+            and stores the generated token ids aligned with the saved rollout.
     """
-    _, max_steps = generated_ids.shape
 
-    eos_ids = (
-        torch.tensor([eos_token_id], device=generated_ids.device, dtype=generated_ids.dtype)
-        if isinstance(eos_token_id, int)
-        else torch.tensor(eos_token_id, device=generated_ids.device, dtype=generated_ids.dtype)
+    rendered_prompt = _render_generation_prompt(
+        prompt=prompt,
+        tokenizer=tokenizer,
+        enable_thinking=enable_thinking,
     )
 
-    # [M, T, 1] == [eos_num] => [M, T, eos_num] => [M, T]
-    eos_mask = (generated_ids.unsqueeze(-1) == eos_ids).any(dim=-1)
-    has_eos = eos_mask.any(dim=-1) # [M]
-    first_eos_pos = eos_mask.to(dtype=torch.long).argmax(dim=-1) # [M], index of the first eos (True => 1)
-    return torch.where(
-        has_eos,
-        first_eos_pos + 1,
-        torch.full_like(first_eos_pos, max_steps), # [M]
-    )
+    if backend == "local":
+        if tokenizer is None:
+            raise ValueError("tokenizer is required when backend='local'")
+        return _generate_local_step_scores(
+            prompt=rendered_prompt,
+            model=model,
+            tokenizer=tokenizer,
+            n_samples=n_samples,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            logprobs=logprobs,
+            seed=seed,
+            device=device,
+        )
+
+    elif backend == "vllm":
+        return _generate_vllm_step_scores(
+            prompt=rendered_prompt,
+            llm=model,
+            n_samples=n_samples,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            seed=seed,
+            logprobs=logprobs,
+            sample_batch_size=sample_batch_size,
+            device=device,
+        )
+
+    raise ValueError("backend must be one of {'local', 'vllm'}")
+
+
+def _render_generation_prompt(
+    prompt: str,
+    tokenizer: AutoTokenizer,
+    enable_thinking: bool | None,
+) -> str:
+    """
+    Renders a chat prompt when the tokenizer exposes a chat template.
+    Thinking control is only applied when the current chat template supports `enable_thinking`.
+    """
+    chat_template = getattr(tokenizer, "chat_template", None)
+    if chat_template is None:
+        return prompt
+
+    messages = [{"role": "user", "content": prompt}]
+    template_kwargs = {
+        "tokenize": False,
+        "add_generation_prompt": True,
+    }
+
+    if enable_thinking is not None and "enable_thinking" in chat_template:
+        template_kwargs["enable_thinking"] = enable_thinking
+
+    return tokenizer.apply_chat_template(messages, **template_kwargs)
 
 
 @torch.inference_mode()
-def _generate_local_step_scores(
+def _generate_vllm_step_scores(
     prompt: str,
-    model: AutoModelForCausalLM,
-    tokenizer: AutoTokenizer,
+    llm: LLM,
     n_samples: int,
     max_new_tokens: int,
     temperature: float,
@@ -57,65 +135,59 @@ def _generate_local_step_scores(
     top_p: float | None,
     seed: int | None,
     logprobs: int,
-    device: str | torch.device | None,
+    sample_batch_size: int,
+    device: torch.device | None,
 ) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
-    Generates M = `n_samples` completions from a local model for one prompt and returns:
+    Generates M = `n_samples` completions from a vLLM model and returns:
         generated_texts: List of M decoded strings.
-        sequence_step_logprobs: List of M tensors, where the i-th tensor has shape [T_i, V] 
-            and contains per-step vocabulary log probability scores that are processed and renormalized.
+        sequence_step_scores: List of M tensors, where the i-th tensor has shape [T_i, K_i_max] 
+            and contains per-step vocabulary scores that are processed and renormalized.
         sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
         generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
-            and contains the exact generated token ids up to the first EOS (inclusive when present).
+            and contains the generated token ids returned by vLLM.
 
     Notes:
         T_i: the length of the i-th generated sequence.
-        T_max: the length of the longest generated sequence among the M samples.
-        K == `logprobs`: number of logits to keep per step.
+        K_i_max: Maximum number of logprob candidates across all steps of the i-th sequence.
+        Seed is incremented by batch index.
     """
-
-    if device is None:
-        device = model.device
-    device = torch.device(device)
-
-    if seed is not None:
-        torch.manual_seed(seed)
-        if device.type == "cuda":
-            torch.cuda.manual_seed_all(seed)
-
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    outputs = model.generate(
-        **inputs,
-        do_sample=True,
-        temperature=temperature,
-        top_k=0 if top_k is None else top_k,
-        top_p=1.0 if top_p is None else top_p,
+    completion_outputs, generated_texts = _generate_vllm_completions(
+        prompt=prompt,
+        llm=llm,
+        n_samples=n_samples,
         max_new_tokens=max_new_tokens,
-        num_return_sequences=n_samples,
-        return_dict_in_generate=True,
-        output_scores=True,
-        pad_token_id=tokenizer.pad_token_id,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        seed=seed,
+        logprobs=logprobs,
+        sample_batch_size=sample_batch_size,
     )
 
-    prompt_len = inputs["input_ids"].shape[1]
-    generated_ids = outputs.sequences[:, prompt_len:]
-    eos_token_id = getattr(model.generation_config, "eos_token_id", tokenizer.eos_token_id)
-    sequence_lengths = _sequence_lengths_from_generated_ids(generated_ids, eos_token_id=eos_token_id) # [M]
+    device = (
+        torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is None
+        else torch.device(device)
+    )
 
-    # [T_max, M, V] => [M, T_max, V]
-    all_scores = torch.stack(outputs.scores, dim=0).transpose(0, 1)
-    all_logprobs = torch.log_softmax(all_scores, dim=-1)
+    sequence_lengths = torch.tensor(
+        [len(output.token_ids) for output in completion_outputs],
+        dtype=torch.long,
+        device=device,
+    )
 
-    # [M, T_max, K]
-    top_vals, _ = torch.topk(all_logprobs, k=logprobs, dim=-1)
+    generated_token_ids = [
+        torch.tensor(output.token_ids, dtype=torch.long, device=device)
+        for output in completion_outputs
+    ]
 
-    lengths = sequence_lengths.tolist()
-    # M x [T_i, K]
-    sequence_step_logprobs = [normalize_scores(top_vals[i, :l]) for i, l in enumerate(lengths)]
-    generated_token_ids = [generated_ids[i, :l].clone() for i, l in enumerate(lengths)]
-    
-    generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-    return generated_texts, sequence_step_logprobs, sequence_lengths, generated_token_ids
+    sequence_step_scores = [
+        normalize_scores(_pad_vllm_step_scores(output.logprobs, device=device))
+        for output in completion_outputs
+    ]
+
+    return generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids
 
 
 def _generate_vllm_completions(
@@ -205,9 +277,10 @@ def _pad_vllm_step_scores(
 
 
 @torch.inference_mode()
-def _generate_vllm_step_scores(
+def _generate_local_step_scores(
     prompt: str,
-    llm: LLM,
+    model: AutoModelForCausalLM,
+    tokenizer: AutoTokenizer,
     n_samples: int,
     max_new_tokens: int,
     temperature: float,
@@ -215,138 +288,99 @@ def _generate_vllm_step_scores(
     top_p: float | None,
     seed: int | None,
     logprobs: int,
-    sample_batch_size: int,
-    device: torch.device | None,
+    device: str | torch.device | None,
 ) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
-    Generates M = `n_samples` completions from a vLLM model and returns:
+    Generates M = `n_samples` completions from a local model for one prompt and returns:
         generated_texts: List of M decoded strings.
-        sequence_step_scores: List of M tensors, where the i-th tensor has shape [T_i, K_i_max] 
-            and contains per-step vocabulary scores that are processed and renormalized.
+        sequence_step_logprobs: List of M tensors, where the i-th tensor has shape [T_i, V] 
+            and contains per-step vocabulary log probability scores that are processed and renormalized.
         sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
         generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
-            and contains the generated token ids returned by vLLM.
+            and contains the exact generated token ids up to the first EOS (inclusive when present).
 
     Notes:
         T_i: the length of the i-th generated sequence.
-        K_i_max: Maximum number of logprob candidates across all steps of the i-th sequence.
-        Seed is incremented by batch index.
+        T_max: the length of the longest generated sequence among the M samples.
+        K == `logprobs`: number of logits to keep per step.
     """
-    completion_outputs, generated_texts = _generate_vllm_completions(
-        prompt=prompt,
-        llm=llm,
-        n_samples=n_samples,
-        max_new_tokens=max_new_tokens,
+
+    if device is None:
+        device = model.device
+    device = torch.device(device)
+
+    if seed is not None:
+        torch.manual_seed(seed)
+        if device.type == "cuda":
+            torch.cuda.manual_seed_all(seed)
+
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    outputs = model.generate(
+        **inputs,
+        do_sample=True,
         temperature=temperature,
-        top_k=top_k,
-        top_p=top_p,
-        seed=seed,
-        logprobs=logprobs,
-        sample_batch_size=sample_batch_size,
+        top_k=0 if top_k is None else top_k,
+        top_p=1.0 if top_p is None else top_p,
+        max_new_tokens=max_new_tokens,
+        num_return_sequences=n_samples,
+        return_dict_in_generate=True,
+        output_scores=True,
+        pad_token_id=tokenizer.pad_token_id,
     )
 
-    device = (
-        torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if device is None
-        else torch.device(device)
-    )
+    prompt_len = inputs["input_ids"].shape[1]
+    generated_ids = outputs.sequences[:, prompt_len:]
+    eos_token_id = getattr(model.generation_config, "eos_token_id", tokenizer.eos_token_id)
+    sequence_lengths = _sequence_lengths_from_generated_ids(generated_ids, eos_token_id=eos_token_id) # [M]
 
-    sequence_lengths = torch.tensor(
-        [len(output.token_ids) for output in completion_outputs],
-        dtype=torch.long,
-        device=device,
-    )
+    # [T_max, M, V] => [M, T_max, V]
+    all_scores = torch.stack(outputs.scores, dim=0).transpose(0, 1)
+    all_logprobs = torch.log_softmax(all_scores, dim=-1)
 
-    generated_token_ids = [
-        torch.tensor(output.token_ids, dtype=torch.long, device=device)
-        for output in completion_outputs
-    ]
+    # [M, T_max, K]
+    top_vals, _ = torch.topk(all_logprobs, k=logprobs, dim=-1)
 
-    sequence_step_scores = [
-        normalize_scores(_pad_vllm_step_scores(output.logprobs, device=device))
-        for output in completion_outputs
-    ]
-
-    return generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids
+    lengths = sequence_lengths.tolist()
+    # M x [T_i, K]
+    sequence_step_logprobs = [normalize_scores(top_vals[i, :l]) for i, l in enumerate(lengths)]
+    generated_token_ids = [generated_ids[i, :l].clone() for i, l in enumerate(lengths)]
+    
+    generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+    return generated_texts, sequence_step_logprobs, sequence_lengths, generated_token_ids
 
 
-def generate_step_scores(
-    prompt: str,
-    model: AutoModelForCausalLM | LLM,
-    n_samples: int,
-    max_new_tokens: int,
-    backend: Literal["local", "vllm"],
-    tokenizer: AutoTokenizer | None = None,
-    temperature: float = 1.0,
-    top_k: int | None = 0,
-    top_p: float | None = 1.0,
-    seed: int | None = 42,
-    logprobs: int = -1,
-    sample_batch_size: int = 8,
-    device: str | torch.device | None = None,
-) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
+def _sequence_lengths_from_generated_ids(
+    generated_ids: torch.Tensor,
+    eos_token_id: int | list[int],
+) -> torch.Tensor:
     """
-    Generate sampled completions and per-step candidate scores for one prompt,
-    where the scores are post-processed and renormalized.
-
+    Computes the sequence lengths of model generations.
+    
     Args:
-        prompt: Single input prompt string used for sampled generations.
-        model: Backend model instance. Use `AutoModelForCausalLM` with local backend
-            and `LLM` with vllm backend.
-        n_samples: Number of model completions to sample for the input prompt (M).
-        max_new_tokens: Maximum number of new generated tokens per completion.
-        backend: Generation backend, either local or vllm.
-        tokenizer: Tokenizer required only for the local backend.
-        temperature: Sampling temperature.
-        top_k: Top-k truncation parameter.
-        top_p: Nucleus sampling parameter.
-        seed: Random seed for sampling. For vLLM, seed is further incremented by batch index.
-        logprobs: Number of candidate-token scores to retain per step.
-        sample_batch_size: Batch size used only for vLLM sampling loops.
-        device: Device override. Backend-specific default device is used if not set.
-
+        generated_ids: Token ids of shape [M, T].
+        eos_token_id: EOS token id or list of EOS token ids.
+    
     Returns:
-        (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids): Tuple that contains
-        - generated_texts: List of M decoded strings.
-        - sequence_step_scores: List of length M. 
-            For local backend, the i-th tensor has shape [T_i, K], where `K == logprobs`.
-            For vLLM backend, the i-th tensor has shape [T_i, K_i_max], 
-                with missing candidates padded by `-inf` per sequence.
-        - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
-        - sequence_lengths: List of length M. The i-th tensor has shape [T_i]
-            and stores the generated token ids aligned with the saved rollout.
+        sequence_lengths: Tensor of shape [M], 
+            where the i-th item is the length of the i-th generated sequence.
+
+    Notes: 
+        Length includes the first EOS token when EOS is present.
     """
+    _, max_steps = generated_ids.shape
 
-    if backend == "local":
-        if tokenizer is None:
-            raise ValueError("tokenizer is required when backend='local'")
-        return _generate_local_step_scores(
-            prompt=prompt,
-            model=model,
-            tokenizer=tokenizer,
-            n_samples=n_samples,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            logprobs=logprobs,
-            seed=seed,
-            device=device,
-        )
+    eos_ids = (
+        torch.tensor([eos_token_id], device=generated_ids.device, dtype=generated_ids.dtype)
+        if isinstance(eos_token_id, int)
+        else torch.tensor(eos_token_id, device=generated_ids.device, dtype=generated_ids.dtype)
+    )
 
-    elif backend == "vllm":
-        return _generate_vllm_step_scores(
-            prompt=prompt,
-            llm=model,
-            n_samples=n_samples,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            seed=seed,
-            logprobs=logprobs,
-            sample_batch_size=sample_batch_size,
-            device=device,
-        )
-
-    raise ValueError("backend must be one of {'local', 'vllm'}")
+    # [M, T, 1] == [eos_num] => [M, T, eos_num] => [M, T]
+    eos_mask = (generated_ids.unsqueeze(-1) == eos_ids).any(dim=-1)
+    has_eos = eos_mask.any(dim=-1) # [M]
+    first_eos_pos = eos_mask.to(dtype=torch.long).argmax(dim=-1) # [M], index of the first eos (True => 1)
+    return torch.where(
+        has_eos,
+        first_eos_pos + 1,
+        torch.full_like(first_eos_pos, max_steps), # [M]
+    )
