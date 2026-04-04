@@ -22,7 +22,7 @@ def generate_step_scores(
     logprobs: int = -1,
     sample_batch_size: int = 8,
     device: str | torch.device | None = None,
-    enable_thinking: bool | None = None,
+    enable_thinking: bool | None = False,
 ) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
     Generates sampled completions and per-step candidate scores for one prompt,
