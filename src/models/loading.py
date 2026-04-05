@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal
 
 import torch
@@ -6,7 +7,7 @@ from vllm import LLM
 
 
 def load_generation_backend(
-    model_path: str,
+    model_path: Path | str,
     backend: Literal["local", "vllm"],
     device: str,
     tensor_parallel_size: int,
@@ -51,7 +52,7 @@ def load_generation_backend(
     raise ValueError("backend must be one of {'local', 'vllm'}")
 
 
-def load_tokenizer(model_path: str) -> PreTrainedTokenizerBase:
+def load_tokenizer(model_path: Path | str) -> PreTrainedTokenizerBase:
     """
     Loads a tokenizer and ensure a valid padding token is configured.
 
@@ -71,7 +72,7 @@ def load_tokenizer(model_path: str) -> PreTrainedTokenizerBase:
 
 def load_hf_model(
     model_cls: type[PreTrainedModel],
-    model_path: str,
+    model_path: Path | str,
     device: torch.device | str,
     **kwargs,
 ) -> PreTrainedModel:
@@ -97,7 +98,7 @@ def load_hf_model(
     return model
 
 
-def load_local_model(model_path: str, device: torch.device | str) -> PreTrainedModel:
+def load_local_model(model_path: Path | str, device: torch.device | str) -> PreTrainedModel:
     """
     Loads a local causal language model, moves it to device, and switches to eval mode.
 
@@ -112,7 +113,7 @@ def load_local_model(model_path: str, device: torch.device | str) -> PreTrainedM
 
 
 def load_vllm_model(
-    model_path: str,
+    model_path: Path | str,
     tensor_parallel_size: int,
     max_model_len: int = 8192,
     max_logprobs: int = 100,
@@ -136,7 +137,7 @@ def load_vllm_model(
         Initialized `LLM` instance.
     """
     llm = LLM(
-        model=model_path,
+        model=str(model_path),
         tensor_parallel_size=tensor_parallel_size,
         max_model_len=max_model_len,
         max_logprobs=max_logprobs,
