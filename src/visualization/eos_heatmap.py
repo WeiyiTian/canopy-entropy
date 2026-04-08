@@ -80,7 +80,7 @@ def plot_eos_topk_membership_heatmap(
 
     Args:
         prompt_eos_topk_membership_trajectories: Nested prompt -> rollout -> trajectory
-            structure. Each innermost tensor is bool-like and has shape `[T_i]`.
+            structure. Each innermost tensor is bool-like and has shape [T_i].
         output_path: Image output path.
         title: Figure title.
         max_positions: Optional cap on plotted token positions.
@@ -231,7 +231,7 @@ def build_eos_heatmap_data(
     Args:
         prompt_eos_logprob_trajectories: Nested prompt-major structure with shape
             `[num_prompts][num_rollouts_for_prompt]`. Each innermost tensor has
-            shape `[T_i]`, where `T_i` is that rollout's generated length.
+            shape [T_i], where T_i is that rollout's generated length.
         max_positions: Optional maximum number of token positions to keep on the
             x-axis. If provided, trajectories are truncated to at most this length.
         group_mode: Controls how rows are grouped before plotting.
@@ -243,10 +243,10 @@ def build_eos_heatmap_data(
 
     Returns:
         Dictionary:
-        - matrix: Array of shape `[num_total_rollouts, K]`, where `K` is 
+        - matrix: Array of shape `[num_total_rollouts, K]`, where K is 
           the longest retained trajectory length. Trailing positions after
-          EOS are filled with `NaN`.
-        - active_counts: Array of shape `[K]` with the number of active
+          EOS are filled with `.
+        - active_counts: Array of shape [K] with the number of active
           rollouts at each token position.
         - prompt_boundaries: Exclusive row-end indices for prompt blocks.
           Empty when `group_mode="combined"`.

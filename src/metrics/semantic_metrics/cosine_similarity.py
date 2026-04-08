@@ -100,15 +100,17 @@ def _average_pairwise_cosine_similarity(normalized_embeddings: torch.Tensor) -> 
 
     Returns:
         Scalar tensor with the mean cosine similarity over unique embedding pairs.
+    
+    Notes:
+        ||sum_i{x_i}||^2 = sum_i{x_i ⋅ x_i} + 2 * sum_{i<j}{x_i ⋅ x_j} = N + 2 * sum_{i<j}{x_i ⋅ x_j}
+        => sum_{i<j}{x_i ⋅ x_j} = (||sum_i{x_i}||^2 - N) / 2
     """
     num_embeddings = normalized_embeddings.shape[0]
-    # [N, N]
-    similarity_matrix = normalized_embeddings @ normalized_embeddings.T
-    # upper triangle (excluding diagonal)
-    pair_sum = torch.triu(similarity_matrix, diagonal=1).sum()
-    # N * (N-1) / 2
     num_pairs = num_embeddings * (num_embeddings - 1) // 2
-    # mean similarity across all unique pairs (i, j)
+
+    embedding_sum = normalized_embeddings.sum(dim=0) # [D]: O(Nd)
+    pair_sum = (embedding_sum.square().sum() - num_embeddings) / 2.0 # O(d)
+    
     return pair_sum / num_pairs
 
 

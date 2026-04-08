@@ -14,13 +14,13 @@ class EOSScoringResult:
 
     Attributes:
         eos_logprobs: Per-step EOS logprob trajectories.
-            List of length `M`, where the i-th tensor has shape `[T_i]`. Entry `t`
+            List of length M, where the i-th tensor has shape [T_i]. Entry t
             (zero-based) equals `log P(EOS | prompt, y_<t)`, where `y_<t` denotes the
-            first `t` generated tokens, and `y_<0` is the empty prefix.
+            first t generated tokens, and `y_<0` is the empty prefix.
         eos_in_topk: Optional per-step EOS top-k membership trajectories.
-            None if `top_k` is not provided. 
-            Otherwise, list of length `M`, where the i-th boolean tensor has shape `[T_i]`. 
-            Entry `t` is `True` if `EOS` is present in top-k of P(⋅| prompt, y_<t).
+            None if top_k is not provided. 
+            Otherwise, list of length M, where the i-th boolean tensor has shape [T_i]. 
+            Entry t is True if EOS is present in top-k of P(⋅| prompt, y_<t).
     """
 
     eos_logprobs: list[torch.Tensor]
@@ -42,8 +42,8 @@ def score_eos_trajectories(
     Args:
         prompt_token_ids: Exact token ids of the rendered generation prefix shared
             by all generated rollouts.
-        generated_token_ids: List of length `M` of rollout token-id tensors. The i-th
-            tensor has shape `[T_i]` and stores the generated token ids for rollout i.
+        generated_token_ids: List of length M of rollout token-id tensors. The i-th
+            tensor has shape [T_i] and stores the generated token ids for rollout i.
         model: Causal language model used for rescoring.
         tokenizer: Tokenizer that provides EOS and padding token ids.
         batch_size: Number of trajectories to score in one forward pass.
@@ -51,7 +51,7 @@ def score_eos_trajectories(
             next-token scores.
 
     Returns:
-        `EOSScoringResult` containing EOS logprob trajectories and, when `top_k`
+        `EOSScoringResult` containing EOS logprob trajectories and, when top_k
         is provided, EOS top-k membership trajectories from the same batched pass.
 
     Notes:
@@ -133,9 +133,9 @@ def _iter_rescored_logprobs(
 
     Yields:
         Tuples containing:
-        - `batch_generation_logprobs`: Tensor of shape `[B, max(T_i), V]`.
-        - `batch_indices`: Original rollout indices for the current batch.
-        - `batch_generated_lengths`: Realized generated lengths for the batch.
+        - batch_generation_logprobs: Tensor of shape [B, max(T_i), V].
+        - batch_indices: Original rollout indices for the current batch.
+        - batch_generated_lengths: Realized generated lengths for the batch.
     """
     device = model.device
     prompt_ids = prompt_token_ids.to(device=device, dtype=torch.long)

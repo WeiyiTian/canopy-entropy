@@ -46,10 +46,10 @@ class SkyworkRewardPipeline:
 
         Args:
             prompt: User prompt.
-            responses: Sequence of `M` assistant responses.
+            responses: Sequence of M assistant responses.
 
         Returns:
-            Tensor `[M]` of reward scores aligned with `responses`.
+            Tensor [M] of reward scores aligned with responses.
         """
 
         conversations = [
