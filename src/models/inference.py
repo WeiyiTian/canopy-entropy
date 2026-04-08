@@ -23,7 +23,7 @@ def generate_step_scores(
     sample_batch_size: int = 8,
     device: str | torch.device | None = None,
     enable_thinking: bool | None = False,
-) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor], torch.Tensor]:
     """
     Generates sampled completions and per-step candidate scores for one prompt,
     where the scores are post-processed and renormalized.
@@ -35,7 +35,7 @@ def generate_step_scores(
         n_samples: Number of model completions to sample for the input prompt (M).
         max_new_tokens: Maximum number of new generated tokens per completion.
         backend: Generation backend, either local or vllm.
-        tokenizer: Tokenizer required only for the local backend.
+        tokenizer: Tokenizer used to render and tokenize the generation prompt.
         temperature: Sampling temperature.
         top_k: Top-k truncation parameter.
         top_p: Nucleus sampling parameter.
@@ -47,7 +47,8 @@ def generate_step_scores(
             reasoning-mode control through `enable_thinking`.
 
     Returns:
-        (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids): Tuple that contains
+        (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids, prompt_token_ids):
+        Tuple containing:
         - generated_texts: List of M decoded strings.
         - sequence_step_scores: List of length M. 
             For local backend, the i-th tensor has shape [T_i, K], where `K == logprobs`.
@@ -56,6 +57,8 @@ def generate_step_scores(
         - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
         - generated_token_ids: List of length M. The i-th tensor has shape [T_i]
             and stores the generated token ids aligned with the saved rollout.
+        - prompt_token_ids: Tensor of shape [P] containing the token ids of 
+            the rendered generation prompt shared by all sampled rollouts.
     """
 
     rendered_prompt = _render_generation_prompt(
@@ -85,6 +88,7 @@ def generate_step_scores(
         return _generate_vllm_step_scores(
             prompt=rendered_prompt,
             llm=model,
+            tokenizer=tokenizer,
             n_samples=n_samples,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
@@ -110,6 +114,7 @@ def _render_generation_prompt(
     """
     chat_template = getattr(tokenizer, "chat_template", None)
     if chat_template is None:
+        print("No chat template available")
         return prompt
 
     messages = [{"role": "user", "content": prompt}]
@@ -128,6 +133,7 @@ def _render_generation_prompt(
 def _generate_vllm_step_scores(
     prompt: str,
     llm: LLM,
+    tokenizer: AutoTokenizer,
     n_samples: int,
     max_new_tokens: int,
     temperature: float,
@@ -137,7 +143,7 @@ def _generate_vllm_step_scores(
     logprobs: int,
     sample_batch_size: int,
     device: torch.device | None,
-) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor], torch.Tensor]:
     """
     Generates M = `n_samples` completions from a vLLM model and returns:
         generated_texts: List of M decoded strings.
@@ -146,6 +152,8 @@ def _generate_vllm_step_scores(
         sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
         generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
             and contains the generated token ids returned by vLLM.
+        prompt_token_ids: Tensor of shape [P] containing the token ids of the
+            rendered generation prefix shared by the sampled completions.
 
     Notes:
         T_i: the length of the i-th generated sequence.
@@ -187,7 +195,8 @@ def _generate_vllm_step_scores(
         for output in completion_outputs
     ]
 
-    return generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids
+    prompt_token_ids = tokenizer(prompt, return_tensors="pt")["input_ids"][0].to(device=device)
+    return generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids, prompt_token_ids
 
 
 def _generate_vllm_completions(
@@ -289,7 +298,7 @@ def _generate_local_step_scores(
     seed: int | None,
     logprobs: int,
     device: str | torch.device | None,
-) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor], torch.Tensor]:
     """
     Generates M = `n_samples` completions from a local model for one prompt and returns:
         generated_texts: List of M decoded strings.
@@ -298,6 +307,8 @@ def _generate_local_step_scores(
         sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
         generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
             and contains the exact generated token ids up to the first EOS (inclusive when present).
+        prompt_token_ids: Tensor of shape [P] containing the token ids of the
+            rendered generation prefix shared by the sampled completions.
 
     Notes:
         T_i: the length of the i-th generated sequence.
@@ -346,7 +357,8 @@ def _generate_local_step_scores(
     generated_token_ids = [generated_ids[i, :l].clone() for i, l in enumerate(lengths)]
     
     generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-    return generated_texts, sequence_step_logprobs, sequence_lengths, generated_token_ids
+    prompt_token_ids = inputs["input_ids"][0].clone()
+    return generated_texts, sequence_step_logprobs, sequence_lengths, generated_token_ids, prompt_token_ids
 
 
 def _sequence_lengths_from_generated_ids(

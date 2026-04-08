@@ -29,7 +29,7 @@ class EOSScoringResult:
 
 @torch.inference_mode()
 def score_eos_trajectories(
-    prompt: str,
+    prompt_token_ids: torch.Tensor,
     generated_token_ids: list[torch.Tensor],
     model: AutoModelForCausalLM,
     tokenizer: PreTrainedTokenizerBase,
@@ -40,7 +40,8 @@ def score_eos_trajectories(
     Scores realized generations and derives EOS signals from rescored next-token logprobs.
 
     Args:
-        prompt: Prompt text shared by all generated rollouts.
+        prompt_token_ids: Exact token ids of the rendered generation prefix shared
+            by all generated rollouts.
         generated_token_ids: List of length `M` of rollout token-id tensors. The i-th
             tensor has shape `[T_i]` and stores the generated token ids for rollout i.
         model: Causal language model used for rescoring.
@@ -63,7 +64,7 @@ def score_eos_trajectories(
     sequence_eos_in_topk = [None] * len(generated_token_ids) if top_k else None
 
     for batch_generation_logprobs, batch_indices, batch_generated_lengths in _iter_rescored_logprobs(
-        prompt=prompt,
+        prompt_token_ids=prompt_token_ids,
         generated_token_ids=generated_token_ids,
         model=model,
         tokenizer=tokenizer,
@@ -113,7 +114,7 @@ def _get_eos_token_ids_tensor(
 
 @torch.inference_mode()
 def _iter_rescored_logprobs(
-    prompt: str,
+    prompt_token_ids: torch.Tensor,
     generated_token_ids: list[torch.Tensor],
     model: AutoModelForCausalLM,
     tokenizer: PreTrainedTokenizerBase,
@@ -123,7 +124,8 @@ def _iter_rescored_logprobs(
     Streams rescored next-token logprobs batch by batch for one prompt.
 
     Args:
-        prompt: Prompt text shared by all generated rollouts.
+        prompt_token_ids: Exact token ids of the rendered generation prefix used
+            during rollout sampling.
         generated_token_ids: Realized generated token ids for each rollout.
         model: Causal language model used for rescoring.
         tokenizer: Tokenizer that provides prompt tokenization and padding ids.
@@ -136,7 +138,7 @@ def _iter_rescored_logprobs(
         - `batch_generated_lengths`: Realized generated lengths for the batch.
     """
     device = model.device
-    prompt_ids = tokenizer(prompt, return_tensors="pt")["input_ids"][0].to(device=device)
+    prompt_ids = prompt_token_ids.to(device=device, dtype=torch.long)
     prompt_len = prompt_ids.numel()
 
     generated_token_ids = [

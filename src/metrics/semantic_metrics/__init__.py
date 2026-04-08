@@ -1,5 +1,11 @@
-from .cosine_similarity import average_pairwise_cosine_similarity
+from .cosine_similarity import (
+    BucketStats,
+    calculate_bucketed_semantic_diversity,
+    stack_semantic_diversity_results,
+)
 
 __all__ = [
-    "average_pairwise_cosine_similarity",
+    "BucketStats",
+    "calculate_bucketed_semantic_diversity",
+    "stack_semantic_diversity_results",
 ]

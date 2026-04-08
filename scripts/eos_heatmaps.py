@@ -95,7 +95,7 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
     prompt_eos_topk_membership_trajectories = []
     for rollout in tqdm(prompt_rollouts, desc="Scoring EOS trajectories", dynamic_ncols=True):
         scored = score_eos_trajectories(
-            prompt=rollout["prompt"],
+            prompt_token_ids=rollout["prompt_token_ids"],
             generated_token_ids=rollout["generated_token_ids"],
             model=model,
             tokenizer=tokenizer,

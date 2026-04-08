@@ -1,28 +1,6 @@
 import torch
 
 
-def _calculate_rollout_average_uncertainty(
-    sequence_conditional_entropy: torch.Tensor,
-    sequence_lengths: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Computes per-rollout average uncertainty `r^(i)_N = H^(i)_sum / N^(i)` for each rollout, 
-    where `N^(i)` is the i-th rollout length, and `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-
-    Args:
-        sequence_conditional_entropy: Tensor of shape [M] with summed step entropies per rollout,
-            where i-th entry is `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-        sequence_lengths: Tensor of shape [M] with generated token lengths per rollout,
-            where i-th entry is `N^(i)`.
-
-    Returns:
-        Tensor of shape [M] where i-th entry is sequence_conditional_entropy[i] / sequence_lengths[i],
-        i.e., `r^(i)_N = H^(i)_sum / N^(i)`.
-    """
-    safe_lengths = sequence_lengths.clamp(min=1.0)
-    return sequence_conditional_entropy / safe_lengths
-
-
 def calculate_branching_factor(
     sequence_conditional_entropy: torch.Tensor,
     sequence_lengths: torch.Tensor,
@@ -77,3 +55,25 @@ def calculate_diversity_correlation(
     covariance = torch.cov(rollout_pairs, correction=1)[0, 1]
     pearson_correlation = torch.corrcoef(rollout_pairs)[0, 1]
     return pearson_correlation, covariance
+
+
+def _calculate_rollout_average_uncertainty(
+    sequence_conditional_entropy: torch.Tensor,
+    sequence_lengths: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Computes per-rollout average uncertainty `r^(i)_N = H^(i)_sum / N^(i)` for each rollout, 
+    where `N^(i)` is the i-th rollout length, and `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
+
+    Args:
+        sequence_conditional_entropy: Tensor of shape [M] with summed step entropies per rollout,
+            where i-th entry is `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
+        sequence_lengths: Tensor of shape [M] with generated token lengths per rollout,
+            where i-th entry is `N^(i)`.
+
+    Returns:
+        Tensor of shape [M] where i-th entry is sequence_conditional_entropy[i] / sequence_lengths[i],
+        i.e., `r^(i)_N = H^(i)_sum / N^(i)`.
+    """
+    safe_lengths = sequence_lengths.clamp(min=1.0)
+    return sequence_conditional_entropy / safe_lengths

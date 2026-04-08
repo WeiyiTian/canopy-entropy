@@ -4,32 +4,6 @@ from .branching_factor import calculate_branching_factor, calculate_diversity_co
 from .gen_ppl import calculate_gen_ppl, calculate_tm_star_max
 
 
-def _weighted_nanmean(values: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
-    """
-    Computes a weighted mean while ignoring invalid entries.
-
-    Args:
-        values: Tensor of shape [P] containing values to aggregate.
-        weights: Tensor of shape [P] containing non-negative weights.
-
-    Returns:
-        Scalar tensor equal to the weighted mean over valid entries where both
-        value and weight are finite and weight > 0.
-
-    Notes:
-        If no valid weighted entry exists, falls back to `torch.nanmean(values)`.
-    """
-    valid_mask = torch.isfinite(values) & torch.isfinite(weights) & (weights > 0.0)
-    safe_values = torch.where(valid_mask, values, torch.zeros_like(values))
-    safe_weights = torch.where(valid_mask, weights, torch.zeros_like(weights))
-
-    total_weight = safe_weights.sum()
-    if total_weight > 0:
-        return (safe_values * safe_weights).sum() / total_weight
-
-    return torch.nanmean(values)
-
-
 def calculate_rollout_summary(
     sequence_entropy: torch.Tensor,
     sequence_lengths: torch.Tensor,
@@ -124,3 +98,29 @@ def calculate_prompt_controlled_diversity(
         "diversity_correlation": correlation_aggregate,
         "diversity_covariance": covariance_aggregate,
     }
+
+
+def _weighted_nanmean(values: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+    """
+    Computes a weighted mean while ignoring invalid entries.
+
+    Args:
+        values: Tensor of shape [P] containing values to aggregate.
+        weights: Tensor of shape [P] containing non-negative weights.
+
+    Returns:
+        Scalar tensor equal to the weighted mean over valid entries where both
+        value and weight are finite and weight > 0.
+
+    Notes:
+        If no valid weighted entry exists, falls back to `torch.nanmean(values)`.
+    """
+    valid_mask = torch.isfinite(values) & torch.isfinite(weights) & (weights > 0.0)
+    safe_values = torch.where(valid_mask, values, torch.zeros_like(values))
+    safe_weights = torch.where(valid_mask, weights, torch.zeros_like(weights))
+
+    total_weight = safe_weights.sum()
+    if total_weight > 0:
+        return (safe_values * safe_weights).sum() / total_weight
+
+    return torch.nanmean(values)

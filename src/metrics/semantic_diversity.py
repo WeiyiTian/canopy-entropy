@@ -3,40 +3,40 @@ from collections.abc import Sequence
 import torch
 from sentence_transformers import SentenceTransformer
 
-from .semantic_metrics import average_pairwise_cosine_similarity
+from .semantic_metrics import (
+    BucketStats,
+    calculate_bucketed_semantic_diversity,
+)
 
 
 @torch.inference_mode()
-def calculate_semantic_diversity(
+def calculate_semantic_diversity_from_responses(
     responses: Sequence[str],
     model: SentenceTransformer,
+    sequence_lengths: torch.Tensor,
     batch_size: int = 16,
-    device: str | torch.device | None = None,
-) -> dict[str, torch.Tensor]:
+) -> dict[str, BucketStats]:
     """
-    Computes response semantic diversity from average pairwise cosine similarity,
-    where diversity is defined as `1 - average_pairwise_similarity`.
+    Encodes responses and computes bucketed semantic diversity.
 
     Args:
         responses: Model responses to compare.
         model: SentenceTransformer embedding model.
+        sequence_lengths: Tensor of shape [N].
         batch_size: Embedding micro-batch size.
-        device: Optional device override.
 
     Returns:
-        Scalar tensor representing the semantic diversity.
+        Mapping from length bucket name to per-bucket `BucketStats` containing
+        semantic similarity, diversity, counts, and observed length ranges.
     """
-    resolved_device = str(device) if device is not None else None
-
-    embeddings = model.encode(
-        list(responses),
+    normalized_embeddings = model.encode(
+        responses,
         batch_size=batch_size,
         convert_to_tensor=True,
         normalize_embeddings=True, # pre-normalize for cosine similarity
         show_progress_bar=True,
-        device=resolved_device,
     )
-    average_similarity = average_pairwise_cosine_similarity(embeddings)
-    semantic_diversity = 1.0 - average_similarity
-
-    return semantic_diversity
+    return calculate_bucketed_semantic_diversity(
+        normalized_embeddings=normalized_embeddings,
+        sequence_lengths=sequence_lengths,
+    )
