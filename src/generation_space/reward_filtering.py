@@ -3,7 +3,7 @@ import math
 
 import torch
 
-from ...models import SkyworkRewardPipeline
+from ..models import SkyworkRewardPipeline
 
 
 @dataclass(slots=True)
