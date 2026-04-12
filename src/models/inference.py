@@ -3,7 +3,7 @@ from tqdm import tqdm
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from vllm import LLM, SamplingParams
+from vllm import LLM, SamplingParams, RequestOutput
 
 from .decoding_policy import normalize_scores
 
@@ -116,8 +116,20 @@ def _render_generation_prompt(
     enable_thinking: bool | None,
 ) -> str:
     """
-    Renders a chat prompt when the tokenizer exposes a chat template.
-    Thinking control is only applied when the current chat template supports `enable_thinking`.
+    Renders one user prompt into the string passed to generation.
+
+    Args:
+        prompt: Raw user prompt.
+        tokenizer: Tokenizer whose chat template is used when available.
+        enable_thinking: Optional chat-template hint for templates that support 
+            reasoning-mode control through `enable_thinking`.
+
+    Returns:
+        Rendered generation prompt string. If the tokenizer has no chat
+        template, returns `prompt` unchanged.
+
+    Notes:
+        This function only renders text; it does not tokenize.
     """
     chat_template = getattr(tokenizer, "chat_template", None)
     if chat_template is None:
@@ -155,7 +167,7 @@ def _generate_vllm_step_scores_batch(
     Generates M sampled completions and per-step candidate scores with vLLM.
 
     Args:
-        prompts: Rendered prompts.
+        prompts: Rendered prompts (N).
         llm: Initialized vLLM engine.
         tokenizer: Tokenizer used to recover prompt token ids.
         n_samples: Number of completions to generate for each prompt (M).
@@ -166,7 +178,7 @@ def _generate_vllm_step_scores_batch(
         seed: Random seed for sampling, incremented by sample batch position, 
             not by prompt position.
         logprobs: Number of candidate-token log probabilities to retain per step.
-        sample_batch_size: Number of completions per prompt requested from vLLM at once.
+        sample_batch_size: Maximum number of completions per prompt requested from vLLM at once (B).
         device: Device used for returned tensors.
 
     Returns:
@@ -185,80 +197,17 @@ def _generate_vllm_step_scores_batch(
         T_i: Length of the i-th generated sequence.
         K_i_max: Maximum number of logprob candidates across all steps of the i-th sequence.
     """
-    completion_outputs_by_prompt, generated_texts_by_prompt = _generate_vllm_completions_batch(
-        prompts=prompts,
-        llm=llm,
-        n_samples=n_samples,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        top_k=top_k,
-        top_p=top_p,
-        seed=seed,
-        logprobs=logprobs,
-        sample_batch_size=sample_batch_size,
-    )
-
     device = (
         torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if device is None
         else torch.device(device)
     )
 
-    prompt_results = []
-    for prompt, completion_outputs, generated_texts in zip(
-        prompts,
-        completion_outputs_by_prompt,
-        generated_texts_by_prompt,
-        strict=True,
-    ):
-        sequence_lengths = torch.tensor(
-            [len(output.token_ids) for output in completion_outputs],
-            dtype=torch.long,
-            device=device,
-        )
-        generated_token_ids = [
-            torch.tensor(output.token_ids, dtype=torch.long, device=device)
-            for output in completion_outputs
-        ]
-        sequence_step_scores = [
-            normalize_scores(_pad_vllm_step_scores(output.logprobs, device=device))
-            for output in completion_outputs
-        ]
-        prompt_token_ids = tokenizer(prompt, return_tensors="pt")["input_ids"][0].to(device=device)
-        prompt_results.append(
-            (
-                generated_texts,
-                sequence_step_scores,
-                sequence_lengths,
-                generated_token_ids,
-                prompt_token_ids,
-            )
-        )
-
-    return prompt_results
-
-
-def _generate_vllm_completions_batch(
-    prompts: list[str],
-    llm: LLM,
-    n_samples: int,
-    max_new_tokens: int,
-    temperature: float,
-    top_k: int | None,
-    top_p: float | None,
-    seed: int | None,
-    logprobs: int,
-    sample_batch_size: int,
-) -> tuple[list[list], list[list[str]]]:
-    """
-    Runs vLLM requests for multiple prompts while preserving per-prompt outputs.
-
-    Each request sends every prompt in `prompts` to vLLM and asks for up to
-    `sample_batch_size` completions per prompt. The loop repeats until each
-    prompt has `n_samples` completions.
-    """
-    completion_outputs_by_prompt = [[] for _ in prompts]
     generated_texts_by_prompt = [[] for _ in prompts]
+    sequence_step_scores_by_prompt = [[] for _ in prompts]
+    sequence_lengths_chunks_by_prompt = [[] for _ in prompts]
+    generated_token_ids_by_prompt = [[] for _ in prompts]
+    
     vllm_top_k = -1 if top_k is None else top_k
     vllm_top_p = 1.0 if top_p is None else top_p
 
@@ -278,16 +227,79 @@ def _generate_vllm_completions_batch(
             prompts=prompts,
             sampling_params=sampling_params,
             use_tqdm=False,
-        ) # list[RequestOutput] of len(prompts)
+        ) # list[RequestOutput] of N
 
         for prompt_idx, request_output in enumerate(request_outputs):
-            batch_outputs = request_output.outputs
-            completion_outputs_by_prompt[prompt_idx].extend(batch_outputs)
-            generated_texts_by_prompt[prompt_idx].extend(
-                output.text for output in batch_outputs
-            )
+            (
+                generated_texts,
+                sequence_step_scores,
+                sequence_lengths,
+                generated_token_ids,
+            ) = _convert_vllm_completion_outputs(request_output.outputs, device=device)
 
-    return completion_outputs_by_prompt, generated_texts_by_prompt
+            generated_texts_by_prompt[prompt_idx].extend(generated_texts)
+            sequence_step_scores_by_prompt[prompt_idx].extend(sequence_step_scores)
+            sequence_lengths_chunks_by_prompt[prompt_idx].append(sequence_lengths)
+            generated_token_ids_by_prompt[prompt_idx].extend(generated_token_ids)
+
+    prompt_results = []
+    for prompt_idx, prompt in enumerate(prompts):
+        prompt_token_ids = tokenizer(prompt, return_tensors="pt")["input_ids"][0].to(device=device)
+        prompt_results.append(
+            (
+                # list[str], length M
+                generated_texts_by_prompt[prompt_idx],
+                # list[Tensor], length M, i-th tensor has shape [T_i, K_i_max]
+                sequence_step_scores_by_prompt[prompt_idx],
+                # Tensor of shape [M]
+                torch.cat(sequence_lengths_chunks_by_prompt[prompt_idx], dim=0),
+                # list[Tensor], length M, i-th tensor has shape [T_i]
+                generated_token_ids_by_prompt[prompt_idx],
+                # Tensor of shape [P]
+                prompt_token_ids,
+            )
+        )
+
+    return prompt_results
+
+
+def _convert_vllm_completion_outputs(
+    completion_outputs: list[RequestOutput],
+    device: torch.device,
+) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
+    """
+    Converts one prompt's vLLM completion outputs from a single request.
+
+    Args:
+        completion_outputs: list of vLLM RequestOutput objects for one prompt's generate request.
+        device: Device used for returned tensors.
+
+    Returns:
+        (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids): Tuple containing
+        - generated_texts: List of decoded completion strings with length B.
+        - sequence_step_scores: List of B tensors, where the j-th tensor has shape [T_j, K_j_max].
+        - sequence_lengths: Tensor of shape [B] containing generated token lengths.
+        - generated_token_ids: List of B tensors, where the j-th tensor has shape [T_j].
+    
+     Notes:
+        T_j: Length of the j-th generated sequence.
+        K_j_max: Maximum number of logprob candidates across all steps of the j-th sequence
+    """
+    generated_texts = [output.text for output in completion_outputs]
+    sequence_lengths = torch.tensor(
+        [len(output.token_ids) for output in completion_outputs],
+        dtype=torch.long,
+        device=device,
+    )
+    sequence_step_scores = [
+        normalize_scores(_pad_vllm_step_scores(output.logprobs, device=device))
+        for output in completion_outputs
+    ]
+    generated_token_ids = [
+        torch.tensor(output.token_ids, dtype=torch.long, device=device)
+        for output in completion_outputs
+    ]
+    return generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids
 
 
 def _pad_vllm_step_scores(
