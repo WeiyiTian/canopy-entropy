@@ -28,7 +28,7 @@ class BucketStats:
     max_length: torch.Tensor
 
     def to_dict(self) -> dict[str, torch.Tensor]:
-        """Serialize bucket statistics to a mapping of scalar tensors."""
+        """Serializes bucket statistics to a mapping of scalar tensors."""
         return {
             "average_similarity": self.average_similarity,
             "semantic_diversity": self.semantic_diversity,
@@ -36,6 +36,16 @@ class BucketStats:
             "min_length": self.min_length,
             "max_length": self.max_length,
         }
+
+    def to_cpu(self) -> BucketStats:
+        """Returns a new object with all tensors moved to CPU."""
+        return BucketStats(
+            average_similarity=self.average_similarity.cpu(),
+            semantic_diversity=self.semantic_diversity.cpu(),
+            num_responses=self.num_responses.cpu(),
+            min_length=self.min_length.cpu(),
+            max_length=self.max_length.cpu(),
+        )
 
 
 def calculate_bucketed_semantic_diversity(

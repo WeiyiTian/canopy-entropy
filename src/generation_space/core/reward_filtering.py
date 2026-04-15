@@ -1,79 +1,76 @@
-from dataclasses import dataclass
 import math
 
 import torch
 
-from src.models import SkyworkRewardPipeline
+from .structures import PromptRollouts
 
 
-@dataclass(slots=True)
-class RewardFilterResult:
+def build_reward_filter_mask(
+    reward_scores: torch.Tensor,
+    keep_fraction: float,
+) -> torch.Tensor:
     """
-    Reward filtering outputs for one prompt's rollouts.
-
-    Attributes:
-        reward_scores: Reward scores aligned with the raw rollout order.
-        kept_mask: Boolean mask indicating which rollouts were retained.
-        retained_step_logprobs: Token-level score tensors for retained rollouts in
-            original rollout order.
-        retained_lengths: Retained rollout lengths in original rollout order.
-    """
-
-    reward_scores: torch.Tensor
-    kept_mask: torch.Tensor
-    retained_step_logprobs: list[torch.Tensor]
-    retained_lengths: torch.Tensor
-
-
-def filter_rollouts_by_reward(
-    prompt: str,
-    generated_texts: list[str],
-    sequence_step_logprobs: list[torch.Tensor],
-    sequence_lengths: torch.Tensor,
-    reward_model: SkyworkRewardPipeline | None,
-    reward_keep_fraction: float,
-) -> RewardFilterResult:
-    """
-    Scores one prompt's rollouts and returns the retained rollout view.
+    Selects the highest-reward rollouts.
 
     Args:
-        prompt: Source prompt shared by all sampled rollouts.
-        generated_texts: List of M rollout texts for the prompt.
-        sequence_step_logprobs: List of M token-level score tensors aligned with `generated_texts`.
-        sequence_lengths: Tensor [M] with generated lengths per rollout.
-        reward_model: Optional reward model used to score each rollout. If
-            None, all rollouts are kept and assigned zero reward.
-        reward_keep_fraction: Fraction of highest-reward rollouts to retain when
-            reward_model is provided.
+        reward_scores: Tensor [M] of reward scores aligned with raw rollout order.
+        keep_fraction: Fraction of highest-reward rollouts to retain.
 
     Returns:
-        `RewardFilterResult` containing per-rollout reward scores, the retention
-        mask, and retained rollout tensors in original rollout order.
+        Boolean tensor [M] with `True` for retained rollouts.
     """
+    keep_count = math.ceil(keep_fraction * int(reward_scores.numel()))
+    keep_indices = torch.topk(reward_scores, k=keep_count).indices
+    keep_mask = torch.zeros_like(reward_scores, dtype=torch.bool)
+    keep_mask[keep_indices] = True
+    return keep_mask
 
-    device = sequence_lengths.device
-    rollout_count = len(generated_texts)
 
-    if reward_model is None:
-        reward_scores = torch.zeros(rollout_count, dtype=torch.float32, device=device)
-        kept_mask = torch.ones(rollout_count, dtype=torch.bool, device=device)
-    else:
-        reward_scores = reward_model.score_batch(prompt, generated_texts).to(device=device)
-        keep_count = math.ceil(reward_keep_fraction * rollout_count)
-        keep_indices = torch.topk(reward_scores, k=keep_count).indices
-        kept_mask = torch.zeros(rollout_count, dtype=torch.bool, device=device)
-        kept_mask[keep_indices] = True
+def apply_filter_mask(
+    sequence_step_logprobs: list[torch.Tensor],
+    sequence_lengths: torch.Tensor,
+    keep_mask: torch.Tensor,
+) -> tuple[list[torch.Tensor], torch.Tensor]:
+    """
+    Applies a Boolean mask to rollout tensors.
 
-    retained_step_logprobs = [
+    Args:
+        sequence_step_logprobs: List of M step logprob tensors.
+        sequence_lengths: Tensor [M] with generated lengths per rollout.
+        keep_mask: Boolean tensor [M] indicating retained rollouts.
+
+    Returns:
+        (kept_step_logprobs, kept_lengths): Tuple in original rollout order
+        - kept_step_logprobs: List of step logprob tensors for retained rollouts.
+        - kept_lengths: Tensor of generated lengths for retained rollouts.
+    """
+    kept_step_logprobs = [
         logprobs
-        for logprobs, keep in zip(sequence_step_logprobs, kept_mask.tolist(), strict=True)
+        for logprobs, keep in zip(sequence_step_logprobs, keep_mask.tolist(), strict=True)
         if keep
     ]
-    retained_lengths = sequence_lengths[kept_mask]
+    kept_lengths = sequence_lengths[keep_mask]
 
-    return RewardFilterResult(
-        reward_scores=reward_scores,
-        kept_mask=kept_mask,
-        retained_step_logprobs=retained_step_logprobs,
-        retained_lengths=retained_lengths,
-    )
+    return kept_step_logprobs, kept_lengths
+
+
+def default_reward_filter(
+    rollouts: PromptRollouts,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Returns zero reward scores and a mask that retains all rollouts.
+    Used when no reward model is configured.
+
+    Args:
+        rollouts: Rollout statistics for a single prompt with M sampled sequences.
+
+    Returns:
+        (reward_scores, keep_mask):
+        - reward_scores: Tensor [M] of zeros on the rollouts' device.
+        - keep_mask: Boolean tensor [M] of `True` on the rollouts' device.
+    """
+    num_samples = len(rollouts.generated_texts)
+    device = rollouts.sequence_lengths.device
+    reward_scores = torch.zeros(num_samples, dtype=torch.float32, device=device)
+    keep_mask = torch.ones(num_samples, dtype=torch.bool, device=device)
+    return reward_scores, keep_mask

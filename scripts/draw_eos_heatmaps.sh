@@ -21,7 +21,7 @@ if [[ $# -gt 0 ]]; then
   shift
 fi
 
-"${PYTHON_BIN}" -m scripts.eos_heatmaps \
+"${PYTHON_BIN}" -m scripts.draw_eos_heatmaps \
   --mode "${MODE}" \
   --file-name "${FILE_NAME}" \
   --model-name "${MODEL_NAME}" \
