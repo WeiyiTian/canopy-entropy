@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 import torch
 
@@ -27,25 +27,9 @@ class BucketStats:
     min_length: torch.Tensor
     max_length: torch.Tensor
 
-    def to_dict(self) -> dict[str, torch.Tensor]:
-        """Serializes bucket statistics to a mapping of scalar tensors."""
-        return {
-            "average_similarity": self.average_similarity,
-            "semantic_diversity": self.semantic_diversity,
-            "num_responses": self.num_responses,
-            "min_length": self.min_length,
-            "max_length": self.max_length,
-        }
-
     def to_cpu(self) -> BucketStats:
         """Returns a new object with all tensors moved to CPU."""
-        return BucketStats(
-            average_similarity=self.average_similarity.cpu(),
-            semantic_diversity=self.semantic_diversity.cpu(),
-            num_responses=self.num_responses.cpu(),
-            min_length=self.min_length.cpu(),
-            max_length=self.max_length.cpu(),
-        )
+        return BucketStats(**{f.name: getattr(self, f.name).cpu() for f in fields(self)})
 
 
 def calculate_bucketed_semantic_diversity(
@@ -66,7 +50,7 @@ def calculate_bucketed_semantic_diversity(
     bucket_ids = _rank_partition_bucket_ids(sequence_lengths)
 
     return {
-        bucket_name: _bucket_stats(
+        bucket_name: _calc_bucket_stats(
             normalized_embeddings=normalized_embeddings,
             sequence_lengths=sequence_lengths,
             # indices of all elements that belong to this bucket
@@ -145,7 +129,7 @@ def _rank_partition_bucket_ids(sequence_lengths: torch.Tensor) -> torch.Tensor:
     return torch.div(ranks * len(LENGTH_BUCKET_NAMES), num_lengths, rounding_mode="floor")
 
 
-def _bucket_stats(
+def _calc_bucket_stats(
     normalized_embeddings: torch.Tensor,
     sequence_lengths: torch.Tensor,
     member_indices: torch.Tensor,

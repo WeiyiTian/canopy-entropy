@@ -2,8 +2,6 @@ import math
 
 import torch
 
-from .structures import PromptRollouts
-
 
 def build_reward_filter_mask(
     reward_scores: torch.Tensor,
@@ -52,25 +50,3 @@ def apply_filter_mask(
     kept_lengths = sequence_lengths[keep_mask]
 
     return kept_step_logprobs, kept_lengths
-
-
-def default_reward_filter(
-    rollouts: PromptRollouts,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Returns zero reward scores and a mask that retains all rollouts.
-    Used when no reward model is configured.
-
-    Args:
-        rollouts: Rollout statistics for a single prompt with M sampled sequences.
-
-    Returns:
-        (reward_scores, keep_mask):
-        - reward_scores: Tensor [M] of zeros on the rollouts' device.
-        - keep_mask: Boolean tensor [M] of `True` on the rollouts' device.
-    """
-    num_samples = len(rollouts.generated_texts)
-    device = rollouts.sequence_lengths.device
-    reward_scores = torch.zeros(num_samples, dtype=torch.float32, device=device)
-    keep_mask = torch.ones(num_samples, dtype=torch.bool, device=device)
-    return reward_scores, keep_mask
