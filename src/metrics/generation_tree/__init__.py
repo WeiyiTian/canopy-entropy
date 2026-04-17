@@ -1,13 +1,19 @@
-from .entropy import step_entropy_and_sequence_entropy
+from .entropy import (
+    step_conditional_entropy_from_logprobs,
+    sequence_entropy_from_step_entropy,
+)
 #from .trajectory import calculate_metric_trajectory
 from .rollout_statistics import (
-    calculate_rollout_summary,
+    RolloutMetrics,
+    calculate_rollout_metrics,
     calculate_prompt_controlled_diversity,
 )
 
 __all__ = [
-    "step_entropy_and_sequence_entropy",
+    "sequence_entropy_from_step_entropy",
+    "step_conditional_entropy_from_logprobs",
     #"calculate_metric_trajectory",
-    "calculate_rollout_summary",
+    "RolloutMetrics",
+    "calculate_rollout_metrics",
     "calculate_prompt_controlled_diversity",
 ]

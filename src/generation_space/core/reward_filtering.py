@@ -24,29 +24,29 @@ def build_reward_filter_mask(
     return keep_mask
 
 
-def apply_filter_mask(
-    sequence_step_logprobs: list[torch.Tensor],
+def filter_rollouts_by_mask(
+    rollout_tensors: list[torch.Tensor],
     sequence_lengths: torch.Tensor,
     keep_mask: torch.Tensor,
 ) -> tuple[list[torch.Tensor], torch.Tensor]:
     """
-    Applies a Boolean mask to rollout tensors.
+    Applies a Boolean mask to a list of per-rollout tensors.
 
     Args:
-        sequence_step_logprobs: List of M step logprob tensors.
+        rollout_tensors: List of M per-rollout tensors.
         sequence_lengths: Tensor [M] with generated lengths per rollout.
         keep_mask: Boolean tensor [M] indicating retained rollouts.
 
     Returns:
-        (kept_step_logprobs, kept_lengths): Tuple in original rollout order
-        - kept_step_logprobs: List of step logprob tensors for retained rollouts.
+        (kept_rollout_tensors, kept_lengths): Tuple in original rollout order
+        - kept_rollout_tensors: List of per-rollout tensors for retained rollouts.
         - kept_lengths: Tensor of generated lengths for retained rollouts.
     """
-    kept_step_logprobs = [
-        logprobs
-        for logprobs, keep in zip(sequence_step_logprobs, keep_mask.tolist(), strict=True)
+    kept_rollout_tensors = [
+        rollout_tensor
+        for rollout_tensor, keep in zip(rollout_tensors, keep_mask.tolist(), strict=True)
         if keep
     ]
     kept_lengths = sequence_lengths[keep_mask]
 
-    return kept_step_logprobs, kept_lengths
+    return kept_rollout_tensors, kept_lengths

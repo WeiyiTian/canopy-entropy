@@ -1,30 +1,59 @@
+from __future__ import annotations
+from dataclasses import dataclass
+
 import torch
 
 from .branching_factor import calculate_branching_factor, calculate_diversity_correlation
 from .gen_ppl import calculate_gen_ppl, calculate_tm_star_max
 
 
-def calculate_rollout_summary(
+@dataclass(slots=True)
+class RolloutMetrics:
+    """
+    Scalar generation space metrics computed from M rollout-level tensors for one prompt.
+
+    Attributes:
+        tm_star_max: `(1/M) * sum_i H^(i)_sum`, 
+            where `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
+        gen_ppl: `exp(tm_star_max / E[N])`, where N is the generation length.
+        branching_factor: `exp((1/M) * sum_i r^(i)_N)`,
+            where `r^(i)_N = H^(i)_sum / N^(i)`.
+        diversity_correlation: Pearson correlation over `(N^(i), r^(i)_N)`.
+        diversity_covariance: Covariance over `(N^(i), r^(i)_N)`.
+    """
+
+    tm_star_max: torch.Tensor
+    gen_ppl: torch.Tensor
+    branching_factor: torch.Tensor
+    diversity_correlation: torch.Tensor
+    diversity_covariance: torch.Tensor
+
+    def to_cpu(self) -> RolloutMetrics:
+        return RolloutMetrics(
+            tm_star_max=self.tm_star_max.cpu(),
+            gen_ppl=self.gen_ppl.cpu(),
+            branching_factor=self.branching_factor.cpu(),
+            diversity_correlation=self.diversity_correlation.cpu(),
+            diversity_covariance=self.diversity_covariance.cpu(),
+        )
+
+
+def calculate_rollout_metrics(
     sequence_entropy: torch.Tensor,
     sequence_lengths: torch.Tensor,
-) -> dict[str, torch.Tensor]:
+) -> RolloutMetrics:
     """
-    Computes scalar generation-space metrics from pooled rollout-level tensors.
+    Computes scalar generation space metrics from M rollout-level tensors for one prompt.
 
     Args:
-        sequence_entropy: Tensor of shape [M_total], where i-th entry is
+        sequence_entropy: Tensor of shape [M], where i-th entry is
             `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-        sequence_lengths: Tensor of shape [M_total], where i-th entry is generated
+        sequence_lengths: Tensor of shape [M], where i-th entry is generated
             token length `N^(i)`.
-
+    
     Returns:
-        dict: Dictionary with keys paired to scalar tensor values
-        - tm_star_max: `(1/M_total) * sum_i H^(i)_sum`.
-        - gen_ppl: `exp(tm_star_max / E[N])`.
-        - branching_factor: `exp((1/M_total) * sum_i r^(i)_N)`,
-            where `r^(i)_N = H^(i)_sum / N^(i)`.
-        - diversity_correlation: Pearson correlation over `(N^(i), r^(i)_N)`.
-        - diversity_covariance: Covariance over `(N^(i), r^(i)_N)`.
+        `RolloutMetrics`: Scalar generation space metrics, including tm_star_max,
+        gen_ppl, branching_factor, diversity_correlation, and diversity_covariance.
     """
     sequence_entropy = sequence_entropy.to(dtype=torch.float32)
     sequence_lengths = sequence_lengths.to(dtype=torch.float32)
@@ -37,13 +66,13 @@ def calculate_rollout_summary(
         sequence_lengths,
     )
 
-    return {
-        "tm_star_max": tm_star_max,
-        "gen_ppl": gen_ppl,
-        "branching_factor": branching_factor,
-        "diversity_correlation": diversity_correlation,
-        "diversity_covariance": diversity_covariance,
-    }
+    return RolloutMetrics(
+        tm_star_max=tm_star_max,
+        gen_ppl=gen_ppl,
+        branching_factor=branching_factor,
+        diversity_correlation=diversity_correlation,
+        diversity_covariance=diversity_covariance,
+    )
 
 
 def calculate_prompt_controlled_diversity(

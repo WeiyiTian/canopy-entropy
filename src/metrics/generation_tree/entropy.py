@@ -23,37 +23,21 @@ def step_conditional_entropy_from_logprobs(logprobs: torch.Tensor) -> torch.Tens
     return -(finite_probs * finite_logprobs).sum(dim=-1).to(dtype=torch.float32)
 
 
-def step_entropy_and_sequence_entropy(
-    sequence_step_logprobs: list[torch.Tensor],
-) -> tuple[list[torch.Tensor], torch.Tensor]:
+def sequence_entropy_from_step_entropy(
+    step_conditional_entropy: list[torch.Tensor],
+) -> torch.Tensor:
     """
-    Computes per-step conditional entropy for each sequence and per-sequence total conditional entropy.
+    Sums per-step entropies into per-sequence total conditional entropies.
 
     Args:
-        sequence_step_logprobs: List of length M. The i-th tensor has shape
-            [T_i, K_i_max], where T_i is sequence i's generated length and
-            K_i_max is the number of retained candidate log-probabilities per
-            step padded with `-inf`.
+        step_conditional_entropy: List of length M. The i-th tensor has shape
+            [T_i] containing per-step entropies `H(Y^(i)_t | X, y^(i)_<t)`.
 
     Returns:
-        (step_entropy_per_sequence, sequence_entropy): Tuple that contains
-        - step_entropy_per_sequence: List of length M. The i-th tensor has
-            shape [T_i] with per-step entropies `H(Y^(i)_t | X, y^(i)_<t)`.
-        - sequence_entropy: Tensor of shape [M], where entry i is the sum of
-            step entropies of sequence i, i.e., `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
+        Tensor of shape [M], where entry i is the sum of step entropies
+            of sequence i, i.e., `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
     """
-    device = sequence_step_logprobs[0].device
-    sequence_entropy = torch.empty(
-        (len(sequence_step_logprobs),),
-        dtype=torch.float32,
-        device=device,
-    )
-    step_entropy_per_sequence: list[torch.Tensor] = []
-
-    for sequence_idx, logprobs in enumerate(sequence_step_logprobs):
-        step_entropy = step_conditional_entropy_from_logprobs(logprobs=logprobs)
-        step_entropy_per_sequence.append(step_entropy)
+    return torch.stack(
         # H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)
-        sequence_entropy[sequence_idx] = step_entropy.sum()
-
-    return step_entropy_per_sequence, sequence_entropy
+        [step_entropy.sum() for step_entropy in step_conditional_entropy]
+    ).to(dtype=torch.float32)

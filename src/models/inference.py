@@ -53,14 +53,17 @@ def generate_step_scores(
         List of per-prompt tuples preserving input prompt order: 
         each (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids, prompt_token_ids)
         - generated_texts: List of M decoded strings.
-        - sequence_step_scores: List of M tensors containing the normalized top-candidate log probabilities 
-            for each generated step. For local backend, the i-th tensor has shape [T_i, K], where `K == logprobs`.
-            For vLLM backend, the i-th tensor has shape [T_i, K_i_max], with missing candidates padded by 
-            `-inf` per sequence.
-        - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the i-th generated sequence.
+        - sequence_step_scores: List of M tensors containing the normalized top-candidate log 
+            probabilities for each generated step. For local backend, the i-th tensor has shape 
+            [T_i, K], where `K == logprobs`.
+            For vLLM backend, the i-th tensor has shape [T_i, K_i_max], with missing candidates
+            padded by `-inf` per sequence.
+        - sequence_lengths: Tensor of shape [M], where the i-th item is the length of the
+            i-th generated sequence.
         - generated_token_ids: List of length M. The i-th tensor has shape [T_i]
             and stores the generated token ids aligned with the saved rollout.
-        - prompt_token_ids: Tensor of shape [P] containing the token ids of the rendered generation prompt.
+        - prompt_token_ids: Tensor of shape [P] containing the token ids of the rendered 
+            generation prompt.
     """
 
     rendered_prompts = [
@@ -191,7 +194,8 @@ def _generate_vllm_step_scores_batch(
             generated sequence.
         - generated_token_ids: List of M tensors, where the i-th tensor has shape [T_i]
             and stores the generated token ids aligned with the saved rollout.
-        - prompt_token_ids: Tensor of shape [P] containing the token ids of the rendered generation prompt.
+        - prompt_token_ids: Tensor of shape [P] containing the token ids of the rendered 
+            generation prompt.
 
     Notes:
         T_i: Length of the i-th generated sequence.
