@@ -85,6 +85,31 @@ def stack_semantic_diversity_results(
     }
 
 
+def calculate_rollout_semantic_diversity(
+    normalized_embeddings: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Computes per-rollout semantic diversity relative to the other rollouts.
+
+    Args:
+        normalized_embeddings: L2-normalized tensor of shape [M, D], one row per rollout.
+
+    Returns:
+        Tensor of shape [M]: i-th entry is the semantic diversity of rollout i 
+        relative to the other M-1 rollouts, computed as `d^(i) = 1 - (1/(M-1)) * sum_{j!=i} <e_i, e_j>`,
+        i.e., 1 - rollout i's mean cosine similarity to the other M-1 rollouts.
+
+    Notes:
+        `sum_{j!=i} <e_i, e_j> = sum_j <e_i, e_j> - <e_i, e_i> = sum_j <e_i, e_j> - 1`
+        `sum_j <e_i, e_j> = <e_i, sum_j e_j> = <e_i, s>`
+        `sum_{j!=i} <e_i, e_j> = <e_i, s> - 1 = e_i @ s - 1`
+    """
+    num_embeddings = normalized_embeddings.shape[0] # M
+    embedding_sum = normalized_embeddings.sum(dim=0) # s = [D]
+    self_excluded_dots = normalized_embeddings @ embedding_sum - 1.0 # [M]: sum_{j!=i} <e_i, e_j>
+    return 1.0 - self_excluded_dots / (num_embeddings - 1)
+
+
 def _average_pairwise_cosine_similarity(normalized_embeddings: torch.Tensor) -> torch.Tensor:
     """
     Returns mean cosine similarity across all unique embedding pairs.

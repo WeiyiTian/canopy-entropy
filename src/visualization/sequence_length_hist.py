@@ -21,7 +21,6 @@ def plot_sequence_length_histogram(
         title: Plot title.
         label_fontsize: Font size used for the title, axis labels, and ticks.
     """
-
     lengths = [int(x) for x in sequence_lengths.detach().cpu().tolist()]
 
     output = Path(output_path)

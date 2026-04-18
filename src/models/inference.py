@@ -65,7 +65,6 @@ def generate_step_scores(
         - prompt_token_ids: Tensor of shape [P] containing the token ids of the rendered 
             generation prompt.
     """
-
     rendered_prompts = [
         _render_generation_prompt(
             prompt=prompt,
@@ -395,7 +394,6 @@ def _generate_local_step_scores(
     Notes:
         T_i: Length of the i-th generated sequence.
     """
-
     if device is None:
         device = model.device
     device = torch.device(device)

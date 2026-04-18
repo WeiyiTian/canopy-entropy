@@ -51,7 +51,6 @@ class SkyworkRewardPipeline:
         Returns:
             Tensor [M] of reward scores aligned with responses.
         """
-
         conversations = [
             [
                 {"role": "user", "content": prompt},
