@@ -83,8 +83,6 @@ def calculate_prompt_metrics(
         semantic_diversity, semantic_diversity_length_correlation/covariance,
         and bucketed_semantic_diversity.
     """
-    sequence_lengths = sequence_lengths.to(dtype=torch.float32)
-
     (
         tm_star_max,
         gen_ppl,
@@ -140,8 +138,6 @@ def calculate_tree_rollout_metrics(
         - entropy_rate_length_correlation: Pearson correlation `rho(N, r_N)` over `(N^(i), r^(i)_N)`.
         - entropy_rate_length_covariance: Covariance `Cov(N, r_N)` over `(N^(i), r^(i)_N)`.
     """
-    sequence_lengths = sequence_lengths.to(dtype=torch.float32)
-
     tm_star_max = calculate_tm_star_max(sequence_entropy)
     gen_ppl = calculate_gen_ppl(tm_star_max, sequence_lengths)
     branching_factor = calculate_branching_factor(sequence_entropy, sequence_lengths)
