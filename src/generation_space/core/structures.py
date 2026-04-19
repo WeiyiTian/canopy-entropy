@@ -125,19 +125,18 @@ class PromptRolloutStats:
         reward_scores: Tensor of shape [M] aligned with raw rollout order.
         keep_mask: Boolean tensor of shape [M] marking retained rollouts after filter.
         raw_metrics: `PromptMetrics` containing metrics computed from all M raw rollouts.
+        raw_sequence_conditional_entropy: Tensor of shape [M] with the sum of step entropies
+            per raw rollout, tensor i is `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
         kept_sequence_lengths: Tensor of shape [M_kept] with post-filter lengths.
-        kept_step_conditional_entropy: List of M_kept tensors; tensor i
-            has shape [T_i] with per-step entropies `H(Y_t | X, y_<t)`.
         kept_sequence_conditional_entropy: Tensor of shape [M_kept] with the
-            sum of step entropies per kept rollout, tensor i is
-            `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-        kept_metrics: `PromptMetrics` containing metrics computed from the M_kept 
+            sum of step entropies per kept rollout, tensor j is
+            `H^(j)_sum = sum_t H(Y^(j)_t | X, y^(j)_<t)
+        kept_metrics: `PromptMetrics` containing metrics computed from the M_kept
             retained rollouts.
 
     Notes:
         M: number of raw sampled rollouts for the prompt.
         M_kept: number of rollouts retained after reward filtering.
-        T_i: generated token length of the i-th kept rollout.
     """
 
     prompt: str
@@ -145,8 +144,8 @@ class PromptRolloutStats:
     reward_scores: torch.Tensor
     keep_mask: torch.Tensor
     raw_metrics: PromptMetrics
+    raw_sequence_conditional_entropy: torch.Tensor
     kept_sequence_lengths: torch.Tensor
-    kept_step_conditional_entropy: list[torch.Tensor]
     kept_sequence_conditional_entropy: torch.Tensor
     kept_metrics: PromptMetrics
 
@@ -158,10 +157,8 @@ class PromptRolloutStats:
             reward_scores=self.reward_scores.cpu(),
             keep_mask=self.keep_mask.cpu(),
             raw_metrics=self.raw_metrics.to_cpu(),
+            raw_sequence_conditional_entropy=self.raw_sequence_conditional_entropy.cpu(),
             kept_sequence_lengths=self.kept_sequence_lengths.cpu(),
-            kept_step_conditional_entropy=[
-                entropy.cpu() for entropy in self.kept_step_conditional_entropy
-            ],
             kept_sequence_conditional_entropy=self.kept_sequence_conditional_entropy.cpu(),
             kept_metrics=self.kept_metrics.to_cpu(),
         )

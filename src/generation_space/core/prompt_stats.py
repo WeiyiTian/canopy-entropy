@@ -67,8 +67,8 @@ def compute_prompt_rollout_stats(
         reward_scores=reward_scores,
         keep_mask=keep_mask,
         raw_metrics=raw_metrics,
+        raw_sequence_conditional_entropy=raw_sequence_conditional_entropy,
         kept_sequence_lengths=kept_lengths,
-        kept_step_conditional_entropy=kept_step_conditional_entropy,
         kept_sequence_conditional_entropy=kept_sequence_conditional_entropy,
         kept_metrics=kept_metrics,
     )

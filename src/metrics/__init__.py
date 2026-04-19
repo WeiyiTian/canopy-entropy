@@ -6,7 +6,6 @@ from .generation_tree import (
 from .semantic_metrics import (
     BucketStats,
     calculate_bucketed_semantic_diversity,
-    stack_semantic_diversity_results,
 )
 from .rollout_metrics import (
     PromptMetrics,
@@ -15,6 +14,7 @@ from .rollout_metrics import (
 )
 from .prompt_aggregation import (
     aggregate_prompt_controlled_correlation,
+    pool_bucketed_semantic_diversity,
 )
 
 __all__ = [
@@ -24,11 +24,11 @@ __all__ = [
 
     "BucketStats",
     "calculate_bucketed_semantic_diversity",
-    "stack_semantic_diversity_results",
 
     "PromptMetrics",
     "calculate_prompt_metrics",
     "calculate_tree_rollout_metrics",
 
     "aggregate_prompt_controlled_correlation",
+    "pool_bucketed_semantic_diversity",
 ]

@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-from collections.abc import Sequence
 from dataclasses import dataclass, fields
 
 import torch
@@ -57,31 +55,6 @@ def calculate_bucketed_semantic_diversity(
             member_indices=(bucket_ids == bucket_id).nonzero(as_tuple=True)[0],
         )
         for bucket_id, bucket_name in enumerate(LENGTH_BUCKET_NAMES)
-    }
-
-
-def stack_semantic_diversity_results(
-    results: Sequence[dict[str, BucketStats]],
-) -> dict[str, BucketStats]:
-    """
-    Stacks prompt-level semantic diversity results into one pooled tensor view.
-
-    Args:
-        results: Sequence of bucketed semantic-diversity summaries.
-
-    Returns:
-        Dictionary from each entry in `LENGTH_BUCKET_NAMES` to its `BucketStats`,
-        whose fields have shape [len(results)] after stacking.
-    """
-    return {
-        bucket_name: BucketStats(
-            average_similarity=torch.stack([result[bucket_name].average_similarity for result in results]),
-            semantic_diversity=torch.stack([result[bucket_name].semantic_diversity for result in results]),
-            num_responses=torch.stack([result[bucket_name].num_responses for result in results]),
-            min_length=torch.stack([result[bucket_name].min_length for result in results]),
-            max_length=torch.stack([result[bucket_name].max_length for result in results]),
-        )
-        for bucket_name in LENGTH_BUCKET_NAMES
     }
 
 

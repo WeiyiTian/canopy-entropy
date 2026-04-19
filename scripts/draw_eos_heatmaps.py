@@ -6,11 +6,12 @@ import torch
 from tqdm import tqdm
 
 from src.generation_space import (
+    GenerationMetadata,
     iter_rollout_records,
-    load_rollout_metadata,
+    rollout_metadata_path,
 )
-from src.utils.paths import resolve_artifact_path, resolve_model_path
-from src.utils.torch_ops import clear_runtime_memory, to_cpu_payload
+from src.utils.paths import build_artifact_path, build_model_path
+from src.utils.torch_ops import clear_runtime_memory
 from src.models import load_local_model, load_tokenizer, score_eos_trajectories
 from src.settings import settings
 from src.visualization import (
@@ -68,17 +69,17 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
     """
     Loads saved rollouts, rescoring them with the HF model, and builds the EOS payload.
     """
-    rollout_dir = resolve_artifact_path(
+    rollout_dir = build_artifact_path(
         args.outputs_root,
         args.file_name,
         args.model_name,
         args.model_variant,
         args.rollout_file,
     )
-    metadata = load_rollout_metadata(rollout_dir)
+    metadata = GenerationMetadata.load(rollout_metadata_path(rollout_dir))
     prompt_count = metadata.num_prompts_processed
 
-    model_path = resolve_model_path(
+    model_path = build_model_path(
         args.model_root,
         metadata.model_name,
         metadata.model_variant,
@@ -109,15 +110,13 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
     del model, tokenizer
     clear_runtime_memory()
 
-    return to_cpu_payload(
-        {
-            "metadata": metadata.to_dict(),
-            "rollout_path": str(rollout_dir),
-            "top_k": args.top_k,
-            "prompt_eos_logprob_trajectories": prompt_eos_logprob_trajectories,
-            "prompt_eos_topk_membership_trajectories": prompt_eos_topk_membership_trajectories,
-        }
-    )
+    return {
+        "metadata": metadata.to_dict(),
+        "rollout_path": str(rollout_dir),
+        "top_k": args.top_k,
+        "prompt_eos_logprob_trajectories": prompt_eos_logprob_trajectories,
+        "prompt_eos_topk_membership_trajectories": prompt_eos_topk_membership_trajectories,
+    }
 
 
 def _plot_eos_payload(
@@ -133,14 +132,14 @@ def _plot_eos_payload(
     prompt_eos_topk_membership_trajectories = eos_payload["prompt_eos_topk_membership_trajectories"]
     top_k = int(eos_payload["top_k"])
 
-    logprob_output_path = resolve_artifact_path(
+    logprob_output_path = build_artifact_path(
         args.results_root,
         prompt_file,
         args.model_name,
         args.model_variant,
         f"{args.group_mode}_{args.logprob_output_file}",
     )
-    topk_output_path = resolve_artifact_path(
+    topk_output_path = build_artifact_path(
         args.results_root,
         prompt_file,
         args.model_name,
@@ -172,7 +171,7 @@ def _plot_eos_payload(
 
 def main() -> None:
     args = parse_args()
-    save_path = resolve_artifact_path(
+    save_path = build_artifact_path(
         args.outputs_root,
         args.file_name,
         args.model_name,
