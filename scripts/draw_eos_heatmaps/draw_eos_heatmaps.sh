@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${REPO_ROOT}"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
@@ -21,7 +21,7 @@ if [[ $# -gt 0 ]]; then
   shift
 fi
 
-"${PYTHON_BIN}" -m scripts.draw_eos_heatmaps \
+"${PYTHON_BIN}" -m scripts.draw_eos_heatmaps.draw_eos_heatmaps \
   --mode "${MODE}" \
   --file-name "${FILE_NAME}" \
   --model-name "${MODEL_NAME}" \

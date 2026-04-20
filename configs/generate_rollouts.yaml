@@ -1,0 +1,20 @@
+defaults:
+  - paths: default
+  - compute: default
+  - model: qwen3-8b-instruct
+  - dataset: coding
+  - generation: default
+  - wandb: online
+  - _self_
+
+rollout_file: generation_rollouts
+resume: false
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

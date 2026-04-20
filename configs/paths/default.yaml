@@ -1,0 +1,4 @@
+data_dir: ${oc.env:DATA_DIR}
+model_root: ${oc.env:MODEL_DIR}
+outputs_root: ${oc.env:OUTPUTS_DIR}
+results_root: ${oc.env:RESULTS_DIR}

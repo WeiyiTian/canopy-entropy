@@ -1,0 +1,11 @@
+n_samples: 100
+max_new_tokens: 4000
+temperature: 1.0
+top_k: 100
+top_p: 1.0
+seed: 42
+logprobs: 100
+prompt_batch_size: 4
+sample_batch_size: 32
+enable_thinking: false
+save_logprobs: false
