@@ -7,8 +7,9 @@ from tqdm import tqdm
 
 from src.generation_space import (
     GenerationMetadata,
-    iter_rollout_records,
-    rollout_metadata_path,
+    PromptRollouts,
+    build_rollout_metadata_path,
+    build_rollout_shard_path,
 )
 from src.utils.paths import build_artifact_path, build_model_path
 from src.utils.torch_ops import clear_runtime_memory
@@ -76,7 +77,7 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
         args.model_variant,
         args.rollout_file,
     )
-    metadata = GenerationMetadata.load(rollout_metadata_path(rollout_dir))
+    metadata = GenerationMetadata.load(build_rollout_metadata_path(rollout_dir))
     prompt_count = metadata.num_prompts_processed
 
     model_path = build_model_path(
@@ -89,13 +90,15 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
 
     prompt_eos_logprob_trajectories = []
     prompt_eos_topk_membership_trajectories = []
-    records = iter_rollout_records(rollout_dir)
-    for _, rollout in tqdm(
-        records,
-        total=prompt_count,
+    for prompt_index in tqdm(
+        range(prompt_count),
         desc="Scoring EOS trajectories",
         dynamic_ncols=True,
     ):
+        rollout = PromptRollouts.load(
+            build_rollout_shard_path(rollout_dir, prompt_index),
+            device=args.model_device,
+        )
         scored = score_eos_trajectories(
             prompt_token_ids=rollout.prompt_token_ids,
             generated_token_ids=rollout.generated_token_ids,
@@ -106,6 +109,7 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
         )
         prompt_eos_logprob_trajectories.append(scored.eos_logprobs)
         prompt_eos_topk_membership_trajectories.append(scored.eos_in_topk)
+        del rollout
 
     del model, tokenizer
     clear_runtime_memory()
