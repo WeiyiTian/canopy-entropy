@@ -21,6 +21,7 @@ GENERATION_SPACE_METRIC_KEYS = (
     "entropy_rate_length_covariance",
     "entropy_rate_length_correlation_pooled",
     "entropy_rate_length_covariance_pooled",
+    "truncation_rate",
     "semantic_diversity_length_correlation",
     "semantic_diversity_length_covariance",
     "semantic_diversity",

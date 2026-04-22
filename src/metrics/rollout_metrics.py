@@ -24,6 +24,8 @@ class PromptMetrics:
         branching_factor: `exp((1/M) * sum_i r^(i)_N)`, where `r^(i)_N = H^(i)_sum / N^(i)`.
         entropy_rate_length_correlation: Pearson correlation `rho(N, r_N)` over `(N^(i), r^(i)_N)`.
         entropy_rate_length_covariance: Covariance `Cov(N, r_N)` over `(N^(i), r^(i)_N)`.
+        truncation_rate: Fraction of rollouts with `N^(i) >= max_new_tokens`, i.e.
+            the empirical `P(N >= T_max)`.
         semantic_diversity: 1 - average pairwise cosine similarity, equiavalent to
             `(1/M) * sum_i d^(i)`, where `d^(i) = 1 - (1/(M-1)) * sum_{j!=i} <e^(i), e^(j)>`
             is rollout i's mean dissimilarity to the other M-1 rollouts.
@@ -39,6 +41,7 @@ class PromptMetrics:
     branching_factor: torch.Tensor
     entropy_rate_length_correlation: torch.Tensor
     entropy_rate_length_covariance: torch.Tensor
+    truncation_rate: torch.Tensor
     semantic_diversity: torch.Tensor
     semantic_diversity_length_correlation: torch.Tensor
     semantic_diversity_length_covariance: torch.Tensor
@@ -51,6 +54,7 @@ class PromptMetrics:
             branching_factor=self.branching_factor.cpu(),
             entropy_rate_length_correlation=self.entropy_rate_length_correlation.cpu(),
             entropy_rate_length_covariance=self.entropy_rate_length_covariance.cpu(),
+            truncation_rate=self.truncation_rate.cpu(),
             semantic_diversity=self.semantic_diversity.cpu(),
             semantic_diversity_length_correlation=self.semantic_diversity_length_correlation.cpu(),
             semantic_diversity_length_covariance=self.semantic_diversity_length_covariance.cpu(),
@@ -65,6 +69,7 @@ def calculate_prompt_metrics(
     sequence_entropy: torch.Tensor,
     sequence_lengths: torch.Tensor,
     normalized_embeddings: torch.Tensor,
+    max_new_tokens: int,
 ) -> PromptMetrics:
     """
     Computes generation space metrics from M rollout-level tensors for one prompt.
@@ -76,12 +81,13 @@ def calculate_prompt_metrics(
             token length `N^(i)` of rollout i.
         normalized_embeddings: L2-normalized tensor of shape [M, D] aligned with
             rollout order.
+        max_new_tokens: Generation length cap `T_max` used during sampling.
 
     Returns:
-        `PromptMetrics`: Generation space metrics, including tm_star_max,
-        gen_ppl, branching_factor, entropy_rate_length_correlation/covariance,
-        semantic_diversity, semantic_diversity_length_correlation/covariance,
-        and bucketed_semantic_diversity.
+        `PromptMetrics`: Generation space metrics, including tm_star_max, gen_ppl,
+        branching_factor, entropy_rate_length_correlation/covariance, truncation_rate,
+        semantic_diversity, semantic_diversity_length_correlation/covariance, and
+        bucketed_semantic_diversity.
     """
     (
         tm_star_max,
@@ -90,6 +96,8 @@ def calculate_prompt_metrics(
         entropy_rate_length_correlation,
         entropy_rate_length_covariance,
     ) = calculate_tree_rollout_metrics(sequence_entropy, sequence_lengths)
+
+    truncation_rate = (sequence_lengths >= max_new_tokens).to(torch.float32).mean()
 
     # [M], i-th entry is d^(i) = 1 - (1/(M-1)) * sum_{j!=i} <e^(i), e^(j)>
     rollout_semantic_diversity = calculate_rollout_semantic_diversity(normalized_embeddings)
@@ -108,6 +116,7 @@ def calculate_prompt_metrics(
         branching_factor=branching_factor,
         entropy_rate_length_correlation=entropy_rate_length_correlation,
         entropy_rate_length_covariance=entropy_rate_length_covariance,
+        truncation_rate=truncation_rate,
         semantic_diversity=semantic_diversity,
         semantic_diversity_length_correlation=semantic_diversity_length_correlation,
         semantic_diversity_length_covariance=semantic_diversity_length_covariance,

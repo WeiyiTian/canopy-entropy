@@ -106,6 +106,9 @@ def _pool_per_prompt_metrics(
     semantic_diversity_bucketed_mean = pool_bucketed_semantic_diversity(
             [m.bucketed_semantic_diversity for m in per_prompt_metrics]
     )
+    truncation_rate = torch.nanmean(
+            torch.stack([m.truncation_rate for m in per_prompt_metrics])
+    )
 
     return {
         "tm_star_max": tm_star_max,
@@ -115,6 +118,7 @@ def _pool_per_prompt_metrics(
         "entropy_rate_length_covariance": entropy_rate_length_covariance,
         "entropy_rate_length_correlation_pooled": entropy_rate_length_correlation_pooled,
         "entropy_rate_length_covariance_pooled": entropy_rate_length_covariance_pooled,
+        "truncation_rate": truncation_rate,
         "semantic_diversity_length_correlation": semantic_diversity_length_correlation,
         "semantic_diversity_length_covariance": semantic_diversity_length_covariance,
         "semantic_diversity": semantic_diversity,

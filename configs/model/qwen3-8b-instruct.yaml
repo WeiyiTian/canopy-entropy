@@ -1,2 +1,3 @@
 name: Qwen3-8b
 variant: instruct
+enable_thinking: false

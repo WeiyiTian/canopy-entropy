@@ -31,7 +31,8 @@ def sequence_entropy_from_step_entropy(
 
     Args:
         step_conditional_entropy: List of length M. The i-th tensor has shape
-            [T_i] containing per-step entropies `H(Y^(i)_t | X, y^(i)_<t)`.
+            [T_i] containing per-step entropies `H(Y^(i)_t | X, y^(i)_<t)`,
+            where Y_t ∈ V including EOS.
 
     Returns:
         Tensor of shape [M], where entry i is the sum of step entropies

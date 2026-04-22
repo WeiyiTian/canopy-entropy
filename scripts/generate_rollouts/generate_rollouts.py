@@ -35,6 +35,11 @@ def main(cfg: DictConfig) -> None:
     )
     is_resume = cfg.resume and build_rollout_metadata_path(rollout_dir).exists()
 
+    if cfg.sampling.top_k is not None and cfg.sampling.top_k > 0:
+        assert cfg.sampling.logprobs >= cfg.sampling.top_k, (
+            f"retained logprobs ({cfg.sampling.logprobs}) must be >= top_k ({cfg.sampling.top_k})."
+        )
+
     prompt_file = Path(cfg.paths.data_dir) / cfg.dataset.file_name
     prompts = load_prompts(prompt_file, cfg.dataset.num_prompts)
     requested_metadata = GenerationMetadata(
@@ -42,14 +47,14 @@ def main(cfg: DictConfig) -> None:
         num_prompts_processed=len(prompts),
         model_name=cfg.model.name,
         model_variant=cfg.model.variant,
-        n_samples=cfg.generation.n_samples,
-        max_new_tokens=cfg.generation.max_new_tokens,
-        temperature=cfg.generation.temperature,
-        top_k=cfg.generation.top_k,
-        top_p=cfg.generation.top_p,
-        seed=cfg.generation.seed,
-        logprobs=cfg.generation.logprobs,
-        enable_thinking=cfg.generation.enable_thinking,
+        n_samples=cfg.sampling.n_samples,
+        max_new_tokens=cfg.sampling.max_new_tokens,
+        temperature=cfg.sampling.temperature,
+        top_k=cfg.sampling.top_k,
+        top_p=cfg.sampling.top_p,
+        seed=cfg.sampling.seed,
+        logprobs=cfg.sampling.logprobs,
+        enable_thinking=cfg.model.enable_thinking,
     )
 
     if is_resume:
@@ -79,13 +84,13 @@ def main(cfg: DictConfig) -> None:
     model_path = build_model_path(cfg.paths.model_root, cfg.model.name, cfg.model.variant)
     model, tokenizer = load_generation_backend(
         model_path=model_path,
-        backend=cfg.compute.backend,
-        device=cfg.compute.device,
-        tensor_parallel_size=cfg.compute.tensor_parallel_size,
-        max_model_len=cfg.compute.max_model_len,
-        max_logprobs=cfg.compute.max_logprobs,
-        gpu_memory_utilization=cfg.compute.gpu_memory_utilization,
-        seed=cfg.generation.seed,
+        backend=cfg.inference.backend,
+        device=cfg.inference.device,
+        tensor_parallel_size=cfg.inference.tensor_parallel_size,
+        max_model_len=cfg.inference.max_model_len,
+        max_logprobs=cfg.inference.max_logprobs,
+        gpu_memory_utilization=cfg.inference.gpu_memory_utilization,
+        seed=cfg.sampling.seed,
     )
 
     remaining_prompts = prompts[start_index:]
@@ -95,23 +100,24 @@ def main(cfg: DictConfig) -> None:
         desc="Generating rollouts",
         dynamic_ncols=True,
     ) as progress:
-        for batch_start in range(0, len(remaining_prompts), cfg.generation.prompt_batch_size):
-            prompt_batch = remaining_prompts[batch_start: batch_start + cfg.generation.prompt_batch_size]
+        for batch_start in range(0, len(remaining_prompts), cfg.sampling.prompt_batch_size):
+            prompt_batch = remaining_prompts[batch_start: batch_start + cfg.sampling.prompt_batch_size]
             batch_results = generate_step_scores(
                 prompts=prompt_batch,
                 model=model,
-                n_samples=cfg.generation.n_samples,
-                max_new_tokens=cfg.generation.max_new_tokens,
-                backend=cfg.compute.backend,
+                n_samples=cfg.sampling.n_samples,
+                max_new_tokens=cfg.sampling.max_new_tokens,
+                backend=cfg.inference.backend,
                 tokenizer=tokenizer,
-                temperature=cfg.generation.temperature,
-                top_k=cfg.generation.top_k,
-                top_p=cfg.generation.top_p,
-                seed=cfg.generation.seed,
-                logprobs=cfg.generation.logprobs,
-                sample_batch_size=cfg.generation.sample_batch_size,
-                device=cfg.compute.device,
-                enable_thinking=cfg.generation.enable_thinking,
+                temperature=cfg.sampling.temperature,
+                top_k=cfg.sampling.top_k,
+                top_p=cfg.sampling.top_p,
+                seed=cfg.sampling.seed,
+                logprobs=cfg.sampling.logprobs,
+                sample_batch_size=cfg.sampling.sample_batch_size,
+                device=cfg.inference.device,
+                enable_thinking=cfg.model.enable_thinking,
+                use_chat_template=cfg.model.variant != "base",
             )
 
             absolute_offset = start_index + batch_start
@@ -136,7 +142,7 @@ def main(cfg: DictConfig) -> None:
                     generated_token_ids=generated_token_ids,
                     sequence_lengths=sequence_lengths,
                     step_conditional_entropy=step_conditional_entropy,
-                    sequence_step_logprobs=sequence_step_logprobs if cfg.generation.save_logprobs else None,
+                    sequence_step_logprobs=sequence_step_logprobs if cfg.sampling.save_logprobs else None,
                 ).save(build_rollout_shard_path(rollout_dir, absolute_offset + prompt_offset))
 
             progress.update(len(prompt_batch))

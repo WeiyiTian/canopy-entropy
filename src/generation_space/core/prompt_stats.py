@@ -18,6 +18,7 @@ def compute_prompt_rollout_stats(
     normalized_embeddings: torch.Tensor,
     reward_scores: torch.Tensor,
     keep_mask: torch.Tensor,
+    max_new_tokens: int,
 ) -> PromptRolloutStats:
     """
     Computes generation space metrics from M generated rollouts for one prompt.
@@ -25,13 +26,15 @@ def compute_prompt_rollout_stats(
     Args:
         prompt: Single input prompt string shared by the sampled generations.
         step_conditional_entropy: List of length M. The i-th tensor has shape
-            [T_i] containing per-step entropies `H(Y^(i)_t | X, y^(i)_<t)`.
+            [T_i] containing per-step entropies `H(Y^(i)_t | X, y^(i)_<t)`,
+            where Y_t ∈ V including EOS.
         sequence_lengths: Tensor of shape [M], where i-th entry is generated
             token length `N^(i)`.
-        normalized_embeddings: Tensor [M, D] of L2-normalized embeddings 
+        normalized_embeddings: Tensor [M, D] of L2-normalized embeddings
             for the M generated responses, aligned with raw rollout order.
         reward_scores: Tensor [M] of reward scores aligned with raw rollout order.
         keep_mask: Boolean tensor [M] indicating retained rollouts.
+        max_new_tokens: Generation length cap `T_max` used during sampling.
 
     Returns:
         `PromptRolloutStats` containing the reward scores, retained rollout
@@ -45,6 +48,7 @@ def compute_prompt_rollout_stats(
         sequence_entropy=raw_sequence_conditional_entropy,
         sequence_lengths=sequence_lengths,
         normalized_embeddings=normalized_embeddings,
+        max_new_tokens=max_new_tokens,
     )
 
     kept_step_conditional_entropy, kept_lengths = filter_rollouts_by_mask(
@@ -59,6 +63,7 @@ def compute_prompt_rollout_stats(
         sequence_entropy=kept_sequence_conditional_entropy,
         sequence_lengths=kept_lengths,
         normalized_embeddings=kept_normalized_embeddings,
+        max_new_tokens=max_new_tokens,
     )
 
     return PromptRolloutStats(

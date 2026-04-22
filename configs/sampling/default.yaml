@@ -7,5 +7,4 @@ seed: 42
 logprobs: 100
 prompt_batch_size: 4
 sample_batch_size: 32
-enable_thinking: false
 save_logprobs: false

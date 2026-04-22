@@ -22,7 +22,8 @@ def generate_step_scores(
     logprobs: int = -1,
     sample_batch_size: int = 8,
     device: str | torch.device | None = None,
-    enable_thinking: bool | None = False,
+    enable_thinking: bool | None = None,
+    use_chat_template: bool = True,
 ) -> list[tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor], torch.Tensor]]:
     """
     Generates sampled completions and per-step candidate scores for one or more prompts.
@@ -48,6 +49,7 @@ def generate_step_scores(
         device: Device override. Backend-specific default device is used if not set.
         enable_thinking: Optional chat-template hint for models that advertise
             reasoning-mode control through `enable_thinking`.
+        use_chat_template: When False (for base models), return the prompt unchanged.
 
     Returns:
         List of per-prompt tuples preserving input prompt order: 
@@ -70,6 +72,7 @@ def generate_step_scores(
             prompt=prompt,
             tokenizer=tokenizer,
             enable_thinking=enable_thinking,
+            use_chat_template=use_chat_template,
         )
         for prompt in prompts
     ]
@@ -116,6 +119,7 @@ def _render_generation_prompt(
     prompt: str,
     tokenizer: AutoTokenizer,
     enable_thinking: bool | None,
+    use_chat_template: bool,
 ) -> str:
     """
     Renders one user prompt into the string passed to generation.
@@ -123,19 +127,18 @@ def _render_generation_prompt(
     Args:
         prompt: Raw user prompt.
         tokenizer: Tokenizer whose chat template is used when available.
-        enable_thinking: Optional chat-template hint for templates that support 
+        enable_thinking: Optional chat-template hint for templates that support
             reasoning-mode control through `enable_thinking`.
+        use_chat_template: When False (for base models), return the prompt unchanged.
 
     Returns:
-        Rendered generation prompt string. If the tokenizer has no chat
-        template, returns `prompt` unchanged.
+        Rendered generation prompt string. If `use_chat_template` is False,
+        returns `prompt` unchanged.
 
     Notes:
         This function only renders text; it does not tokenize.
     """
-    chat_template = getattr(tokenizer, "chat_template", None)
-    if chat_template is None:
-        print("No chat template available")
+    if not use_chat_template:
         return prompt
 
     messages = [{"role": "user", "content": prompt}]
@@ -143,8 +146,7 @@ def _render_generation_prompt(
         "tokenize": False,
         "add_generation_prompt": True,
     }
-
-    if enable_thinking is not None and "enable_thinking" in chat_template:
+    if enable_thinking is not None:
         template_kwargs["enable_thinking"] = enable_thinking
 
     return tokenizer.apply_chat_template(messages, **template_kwargs)
@@ -409,7 +411,7 @@ def _generate_local_step_scores(
 
     for start in range(0, n_samples, sample_batch_size):
         current_batch_size = min(sample_batch_size, n_samples - start)
-        if seed is None:
+        if seed is not None:
             torch.manual_seed(seed + start)
             if device.type == "cuda":
                 torch.cuda.manual_seed_all(seed + start)

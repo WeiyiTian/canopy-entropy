@@ -77,8 +77,7 @@ def load_hf_model(
     **kwargs,
 ) -> PreTrainedModel:
     """
-    Loads a Hugging Face model, ensures padding is configured, moves it to device,
-    and switches it to eval mode.
+    Loads a Hugging Face model, moves it to device, and switches it to eval mode.
 
     Args:
         model_cls: Hugging Face model class with `from_pretrained`.
@@ -90,8 +89,6 @@ def load_hf_model(
         Initialized Hugging Face model in evaluation mode.
     """
     model = model_cls.from_pretrained(model_path, **kwargs)
-    if getattr(model.config, "pad_token_id", None) is None and model.config.eos_token_id is not None:
-        model.config.pad_token_id = model.config.eos_token_id
     model.to(device)
     model.eval()
 
@@ -143,6 +140,7 @@ def load_vllm_model(
         max_logprobs=max_logprobs,
         logprobs_mode=logprobs_mode,
         gpu_memory_utilization=gpu_memory_utilization,
-        seed=seed
+        enable_prefix_caching=True,
+        seed=seed,
     )
     return llm

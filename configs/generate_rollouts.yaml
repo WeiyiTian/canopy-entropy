@@ -1,9 +1,9 @@
 defaults:
   - paths: default
-  - compute: default
+  - inference: default
   - model: qwen3-8b-instruct
   - dataset: coding
-  - generation: default
+  - sampling: default
   - wandb: online
   - _self_
 
