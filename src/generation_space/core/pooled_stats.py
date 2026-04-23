@@ -1,11 +1,7 @@
 import torch
 
-from src.metrics import (
-    PromptMetrics,
-    aggregate_prompt_controlled_correlation,
-    calculate_tree_rollout_metrics,
-    pool_bucketed_semantic_diversity,
-)
+from src.metrics import PromptMetrics, aggregate_prompt_controlled_correlation
+from src.metrics.semantic_metrics import pool_bucketed_semantic_diversity
 
 from .structures import PromptRolloutStats
 
@@ -17,19 +13,18 @@ def compute_pooled_metrics(
     Computes cross-prompt generation space metrics for raw and reward-filtered rollouts.
 
     Args:
-        prompt_results: List of P `PromptRolloutStats` containing per-prompt stats and 
+        prompt_results: List of P `PromptRolloutStats` containing per-prompt stats and
         metrics for both raw and reward-filtered rollouts.
 
     Returns:
         Dictionary with `"raw"` and `"kept"` entries. Each entry is a metric
-        dictionary keyed by `GENERATION_SPACE_METRIC_KEYS`. Entries are scalar tensors,
-        except `semantic_diversity_bucketed_mean`, which is a mapping from length
-        bucket names to scalar tensors.
-    
+        dictionary keyed by `GENERATION_SPACE_METRIC_KEYS`. The two
+        `*_vs_length` entries are `LengthCorrelation`, `semantic_diversity_bucketed_mean`
+        maps length bucket names to scalar tensors, and all others are scalar tensors.
+
     Notes:
-        Correlation and covariance metrics without the `_pooled` suffix are
-        prompt-controlled aggregates of the per-prompt metrics. Other metrics are
-        recomputed on all rollouts concatenated into one tensor.
+        Pooled linear quantities are unweighted per-prompt means. `exp` is applied
+        after averaging. Correlations and covariances use the prompt-controlled aggregate.
     """
     return {
         "raw": _pool_per_prompt_metrics(
@@ -58,69 +53,65 @@ def _pool_per_prompt_metrics(
         per_prompt_sequence_lengths: List of length P. The p-th tensor has shape
             [n_p] with rollout lengths `N^(p,i)` for prompt p.
         per_prompt_sequence_entropy: List of length P. The p-th tensor has shape
-            [n_p] with per-rollout summed step conditional entropies as 
+            [n_p] with per-rollout summed step conditional entropies as
             `H^(p,i)_sum = sum_t H(Y_t^(p,i) | X^p, y_<t^(p,i))`.
         per_prompt_metrics: List of P `PromptMetrics`. The p-th entry contains
             per-prompt metrics computed from prompt p's n_p rollouts.
-        
+
     Returns:
-        Metric dictionary keyed by `GENERATION_SPACE_METRIC_KEYS`. Entries are 
-        scalar tensors, except `semantic_diversity_bucketed_mean`, which is a 
-        mapping from length bucket names to scalar tensors.
-    
+        Metric dictionary keyed by `GENERATION_SPACE_METRIC_KEYS`. The two
+        `*_vs_length` entries are `LengthCorrelation`, `semantic_diversity_bucketed_mean`
+        maps length bucket names to scalar tensors, and all others are scalar tensors.
+
     Notes:
-        Correlation and covariance metrics without the `_pooled` suffix are
-        prompt-controlled aggregates of the per-prompt metrics. Other metrics are
-        recomputed on all rollouts concatenated into one tensor.
+        Pooled linear quantities are unweighted per-prompt means. `exp` is applied
+        after averaging. Correlations and covariances use the prompt-controlled aggregate.
     """
-    sequence_lengths = torch.cat(per_prompt_sequence_lengths, dim=0).to(dtype=torch.float32)
-    sequence_entropy = torch.cat(per_prompt_sequence_entropy, dim=0)
     per_prompt_rollout_counts = [int(t.numel()) for t in per_prompt_sequence_lengths]
 
-    (
-        tm_star_max,
-        gen_ppl,
-        branching_factor,
-        entropy_rate_length_correlation_pooled,
-        entropy_rate_length_covariance_pooled,
-    ) = calculate_tree_rollout_metrics(sequence_entropy, sequence_lengths)
-
-    entropy_rate_length_correlation, entropy_rate_length_covariance = (
-        aggregate_prompt_controlled_correlation(
-            correlations=[m.entropy_rate_length_correlation for m in per_prompt_metrics],
-            covariances=[m.entropy_rate_length_covariance for m in per_prompt_metrics],
-            per_prompt_rollout_counts=per_prompt_rollout_counts,
-        )
+    tm_star_max = torch.nanmean(
+        torch.stack([m.tm_star_max for m in per_prompt_metrics]) # [P]
     )
-    semantic_diversity_length_correlation, semantic_diversity_length_covariance = (
-        aggregate_prompt_controlled_correlation(
-            correlations=[m.semantic_diversity_length_correlation for m in per_prompt_metrics],
-            covariances=[m.semantic_diversity_length_covariance for m in per_prompt_metrics],
-            per_prompt_rollout_counts=per_prompt_rollout_counts,
-        )
+    mean_length = torch.nanmean(
+        torch.stack([lengths.to(dtype=torch.float32).mean() for lengths in per_prompt_sequence_lengths]) # [P]
+    )
+    mean_entropy_rate = torch.nanmean(
+        torch.stack([
+            (entropy / lengths.to(dtype=torch.float32).clamp(min=1.0)).mean()
+            for entropy, lengths in zip(
+                per_prompt_sequence_entropy, per_prompt_sequence_lengths, strict=True
+            ) # P pairs of tensors with shape [n_p]
+        ]) # [P] of mean([n_p] of entropy / length)
+    )
+    gen_ppl = torch.exp(tm_star_max / mean_length)
+    branching_factor = torch.exp(mean_entropy_rate)
+
+    entropy_rate_vs_length = aggregate_prompt_controlled_correlation(
+        length_correlations=[m.entropy_rate_vs_length for m in per_prompt_metrics],
+        per_prompt_rollout_counts=per_prompt_rollout_counts,
+    )
+    semantic_diversity_vs_length = aggregate_prompt_controlled_correlation(
+        length_correlations=[m.semantic_diversity_vs_length for m in per_prompt_metrics],
+        per_prompt_rollout_counts=per_prompt_rollout_counts,
     )
 
     semantic_diversity = torch.nanmean(
-            torch.stack([m.semantic_diversity for m in per_prompt_metrics])
+        torch.stack([m.semantic_diversity for m in per_prompt_metrics]) # [P]
     )
     semantic_diversity_bucketed_mean = pool_bucketed_semantic_diversity(
-            [m.bucketed_semantic_diversity for m in per_prompt_metrics]
-    )
+        [m.bucketed_semantic_diversity for m in per_prompt_metrics] # list of P dicts
+    ) # dict of {bucket_name: scalar mean over P prompts}
     truncation_rate = torch.nanmean(
-            torch.stack([m.truncation_rate for m in per_prompt_metrics])
+        torch.stack([m.truncation_rate for m in per_prompt_metrics]) # [P]
     )
 
     return {
         "tm_star_max": tm_star_max,
         "gen_ppl": gen_ppl,
         "branching_factor": branching_factor,
-        "entropy_rate_length_correlation": entropy_rate_length_correlation,
-        "entropy_rate_length_covariance": entropy_rate_length_covariance,
-        "entropy_rate_length_correlation_pooled": entropy_rate_length_correlation_pooled,
-        "entropy_rate_length_covariance_pooled": entropy_rate_length_covariance_pooled,
+        "entropy_rate_vs_length": entropy_rate_vs_length,
         "truncation_rate": truncation_rate,
-        "semantic_diversity_length_correlation": semantic_diversity_length_correlation,
-        "semantic_diversity_length_covariance": semantic_diversity_length_covariance,
+        "semantic_diversity_vs_length": semantic_diversity_vs_length,
         "semantic_diversity": semantic_diversity,
         "semantic_diversity_bucketed_mean": semantic_diversity_bucketed_mean,
     }

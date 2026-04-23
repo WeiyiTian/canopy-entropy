@@ -1,9 +1,7 @@
 import torch
 
-from src.metrics import (
-    calculate_prompt_metrics,
-    sequence_entropy_from_step_entropy,
-)
+from src.metrics import calculate_prompt_metrics
+from src.metrics.generation_tree import sequence_entropy_from_step_entropy
 
 from .reward_filtering import filter_rollouts_by_mask
 from .structures import PromptRolloutStats
@@ -15,7 +13,7 @@ def compute_prompt_rollout_stats(
     step_conditional_entropy: list[torch.Tensor],
     sequence_lengths: torch.Tensor,
     *,
-    normalized_embeddings: torch.Tensor,
+    normalized_embeddings: torch.Tensor | None,
     reward_scores: torch.Tensor,
     keep_mask: torch.Tensor,
     max_new_tokens: int,
@@ -31,7 +29,8 @@ def compute_prompt_rollout_stats(
         sequence_lengths: Tensor of shape [M], where i-th entry is generated
             token length `N^(i)`.
         normalized_embeddings: Tensor [M, D] of L2-normalized embeddings
-            for the M generated responses, aligned with raw rollout order.
+            for the M generated responses, aligned with raw rollout order, or
+            `None` to skip embedding-based metrics.
         reward_scores: Tensor [M] of reward scores aligned with raw rollout order.
         keep_mask: Boolean tensor [M] indicating retained rollouts.
         max_new_tokens: Generation length cap `T_max` used during sampling.
@@ -57,7 +56,9 @@ def compute_prompt_rollout_stats(
         keep_mask=keep_mask,
     )
 
-    kept_normalized_embeddings = normalized_embeddings[keep_mask]
+    kept_normalized_embeddings = (
+        normalized_embeddings[keep_mask] if normalized_embeddings is not None else None
+    )
     kept_sequence_conditional_entropy = sequence_entropy_from_step_entropy(kept_step_conditional_entropy)
     kept_metrics = calculate_prompt_metrics(
         sequence_entropy=kept_sequence_conditional_entropy,

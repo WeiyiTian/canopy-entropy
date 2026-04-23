@@ -5,14 +5,9 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 
-from src.generation_space import (
-    GenerationMetadata,
-    PromptRollouts,
-    build_rollout_metadata_path,
-    build_rollout_shard_path,
-)
-from src.utils.paths import build_artifact_path, build_model_path
-from src.utils.torch_ops import clear_runtime_memory
+from src.generation_space.core import GenerationMetadata, PromptRollouts
+from src.generation_space.io import build_rollout_metadata_path, build_rollout_shard_path
+from src.utils import build_artifact_path, build_model_path, clear_runtime_memory
 from src.models import load_local_model, load_tokenizer, score_eos_trajectories
 from src.settings import settings
 from src.visualization import (

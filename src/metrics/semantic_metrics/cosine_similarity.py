@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Sequence
 from dataclasses import dataclass, fields
 
 import torch
@@ -28,6 +29,35 @@ class BucketStats:
     def to_cpu(self) -> BucketStats:
         """Returns a new object with all tensors moved to CPU."""
         return BucketStats(**{f.name: getattr(self, f.name).cpu() for f in fields(self)})
+
+
+def pool_bucketed_semantic_diversity(
+    bucket_stats_by_prompt: Sequence[dict[str, BucketStats]],
+) -> dict[str, torch.Tensor]:
+    """
+    Aggregates bucketed semantic-diversity scores across prompts.
+
+    For each length bucket, stacks the per-prompt `semantic_diversity`
+    scalars and returns their non-NaN mean.
+
+    Args:
+        bucket_stats_by_prompt: List of P dictionaries, one per prompt,
+            where each dictionary maps length bucket names to `BucketStats`.
+
+    Returns:
+        Dictionary mapping each length bucket name to a scalar tensor containing
+        the mean of that bucket's `semantic_diversity` values across prompts,
+        ignoring NaNs.
+    """
+    return {
+        bucket_name: torch.nanmean(
+            torch.stack([
+                bucket_stats[bucket_name].semantic_diversity
+                for bucket_stats in bucket_stats_by_prompt
+            ]) # [P]
+        )
+        for bucket_name in LENGTH_BUCKET_NAMES
+    }
 
 
 def calculate_bucketed_semantic_diversity(

@@ -17,7 +17,7 @@ from src.generation_space.io import (
     resume_rollouts,
 )
 from src.generation_space.reporting import resolve_run_name
-from src.metrics import step_conditional_entropy_from_logprobs
+from src.metrics.generation_tree import step_conditional_entropy_from_logprobs
 from src.models import generate_step_scores, load_generation_backend
 from src.utils import build_artifact_path, build_model_path, clear_runtime_memory
 
@@ -59,6 +59,7 @@ def main(cfg: DictConfig) -> None:
 
     if is_resume:
         start_index = resume_rollouts(rollout_dir, requested_metadata)
+        print(f"Resuming rollouts from index {start_index} at {rollout_dir}")
         if start_index >= len(prompts):
             print(f"Rollouts already complete: {start_index}/{len(prompts)} shards at {rollout_dir}")
             return
