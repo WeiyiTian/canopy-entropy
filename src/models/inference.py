@@ -1,5 +1,4 @@
 from typing import Literal
-from tqdm import tqdm
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -216,7 +215,7 @@ def _generate_vllm_step_scores_batch(
     vllm_top_k = -1 if top_k is None else top_k
     vllm_top_p = 1.0 if top_p is None else top_p
 
-    for start in tqdm(range(0, n_samples, sample_batch_size), desc="Generating batched completions"):
+    for start in range(0, n_samples, sample_batch_size):
         current_batch_size = min(sample_batch_size, n_samples - start)
         sampling_params = SamplingParams(
             n=current_batch_size,
@@ -231,7 +230,7 @@ def _generate_vllm_step_scores_batch(
         request_outputs = llm.generate(
             prompts=prompts,
             sampling_params=sampling_params,
-            use_tqdm=False,
+            use_tqdm=True,
         ) # list[RequestOutput] of N
 
         for prompt_idx, request_output in enumerate(request_outputs):

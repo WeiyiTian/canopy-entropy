@@ -1,0 +1,21 @@
+defaults:
+  - paths: default
+  - inference: a100
+  - model: qwen3-8b-instruct
+  - dataset: coding
+  - reward: none
+  - embedding: none
+  - wandb: online
+  - _self_
+
+rollout_file: generation_rollouts
+metric_file: generation_space_metrics.pt
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

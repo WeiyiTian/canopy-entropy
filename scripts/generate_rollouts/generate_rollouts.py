@@ -44,7 +44,7 @@ def main(cfg: DictConfig) -> None:
     prompts = load_prompts(prompt_file, cfg.dataset.num_prompts)
     requested_metadata = GenerationMetadata(
         prompt_file=str(prompt_file),
-        num_prompts_processed=len(prompts),
+        num_prompts=len(prompts),
         model_name=cfg.model.name,
         model_variant=cfg.model.variant,
         n_samples=cfg.sampling.n_samples,
@@ -100,9 +100,11 @@ def main(cfg: DictConfig) -> None:
         initial=start_index,
         desc="Generating rollouts",
         dynamic_ncols=True,
+        position=2,
+        leave=True,
     ) as progress:
-        for batch_start in range(0, len(remaining_prompts), cfg.sampling.prompt_batch_size):
-            prompt_batch = remaining_prompts[batch_start: batch_start + cfg.sampling.prompt_batch_size]
+        for batch_start in range(0, len(remaining_prompts), cfg.inference.prompt_batch_size):
+            prompt_batch = remaining_prompts[batch_start: batch_start + cfg.inference.prompt_batch_size]
             batch_results = generate_step_scores(
                 prompts=prompt_batch,
                 model=model,
@@ -115,7 +117,7 @@ def main(cfg: DictConfig) -> None:
                 top_p=cfg.sampling.top_p,
                 seed=cfg.sampling.seed,
                 logprobs=cfg.sampling.logprobs,
-                sample_batch_size=cfg.sampling.sample_batch_size,
+                sample_batch_size=cfg.inference.sample_batch_size,
                 device=cfg.inference.device,
                 enable_thinking=cfg.model.enable_thinking,
                 use_chat_template=cfg.model.variant != "base",

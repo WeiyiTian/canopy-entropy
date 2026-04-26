@@ -1,6 +1,6 @@
 defaults:
   - paths: default
-  - inference: default
+  - inference: a100
   - model: qwen3-8b-instruct
   - dataset: coding
   - sampling: default
@@ -8,13 +8,18 @@ defaults:
   - _self_
 
 rollout_file: generation_rollouts
-resume: false
+resume: true
+sweep_name: default
 
 hydra:
   job:
     chdir: false
+    config:
+      override_dirname:
+        exclude_keys:
+          - experiment
   run:
-    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
   sweep:
-    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
-    subdir: ${hydra.job.num}
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${sweep_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}_${hydra.job.override_dirname}

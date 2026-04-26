@@ -171,7 +171,7 @@ class GenerationMetadata:
 
     Attributes:
         prompt_file: Path to the prompt file used for generation.
-        num_prompts_processed: Number of input prompts for which rollouts were generated.
+        num_prompts: Number of input prompts in this generation run.
         model_name: Generation model family.
         model_variant: Model variant identifier.
         n_samples: Number of rollouts sampled per prompt.
@@ -185,7 +185,7 @@ class GenerationMetadata:
     """
 
     prompt_file: str
-    num_prompts_processed: int
+    num_prompts: int
     model_name: str
     model_variant: str
     n_samples: int

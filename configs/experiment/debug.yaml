@@ -1,0 +1,15 @@
+# @package _global_
+
+wandb:
+  project: debug-branching-entropy
+
+dataset:
+  num_prompts: 5
+
+sampling:
+  n_samples: 5
+  max_new_tokens: 1000
+
+paths:
+  outputs_root: ${oc.env:OUTPUTS_DIR}/debug
+  results_root: ${oc.env:RESULTS_DIR}/debug

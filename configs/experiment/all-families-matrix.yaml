@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - override /hydra/launcher: submitit_slurm
+  - override /inference: a100
+
+sweep_name: all-families-matrix
+
+hydra:
+  mode: MULTIRUN
+  launcher:
+    timeout_min: 360
+    mem_gb: 100
+    cpus_per_task: 8
+    gpus_per_node: 1
+    nodes: 1
+    tasks_per_node: 1
+    array_parallelism: 20
+    partition: general
+    constraint: "a100|h100|h200"
+    additional_parameters:
+      export: "ALL,PYTHONUNBUFFERED=1"
+  sweeper:
+    params:
+      model: qwen3-8b-base,qwen3-8b-instruct,llama3.1-8b-base,llama3.1-8b-instruct,gemma-3-12b-base,gemma-3-12b-instruct
+      dataset: coding,completion,math,stories

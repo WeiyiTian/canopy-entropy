@@ -11,6 +11,10 @@ MODEL_VARIANTS = {
         "base": "Llama-3.1-8B",
         "instruct": "Llama-3.1-8B-Instruct",
     },
+    "Gemma-3-12b": {
+        "base": "gemma-3-12b-pt",
+        "instruct": "gemma-3-12b-it",
+    },
 }
 
 GENERATION_SPACE_METRIC_KEYS = (

@@ -6,7 +6,11 @@ import torch
 from tqdm import tqdm
 
 from src.generation_space.core import GenerationMetadata, PromptRollouts
-from src.generation_space.io import build_rollout_metadata_path, build_rollout_shard_path
+from src.generation_space.io import (
+    build_rollout_metadata_path,
+    build_rollout_shard_path,
+    verify_rollouts_complete,
+)
 from src.utils import build_artifact_path, build_model_path, clear_runtime_memory
 from src.models import load_local_model, load_tokenizer, score_eos_trajectories
 from src.settings import settings
@@ -73,7 +77,8 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
         args.rollout_file,
     )
     metadata = GenerationMetadata.load(build_rollout_metadata_path(rollout_dir))
-    prompt_count = metadata.num_prompts_processed
+    verify_rollouts_complete(rollout_dir, metadata)
+    prompt_count = metadata.num_prompts
 
     model_path = build_model_path(
         args.model_root,
