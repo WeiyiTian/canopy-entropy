@@ -6,17 +6,16 @@ from torchmetrics.functional import kendall_rank_corrcoef, spearman_corrcoef
 
 
 @dataclass(slots=True)
-class LengthCorrelation:
+class Correlation:
     """
-    Co-movement between per-rollout generation lengths and a per-rollout value
-    of interest.
+    Co-movement between two per-rollout values.
 
     Attributes:
-        pearson: Pearson correlation `rho(N, z)`.
-        spearman: Spearman rank correlation over `(N, z)`; rank-based, uses
+        pearson: Pearson correlation `rho(a, b)`.
+        spearman: Spearman rank correlation over `(a, b)`; rank-based, uses
             mid-ranks for ties.
-        kendall: Kendall's tau-b over `(N, z)` with tie-adjusted concordance.
-        covariance: Pearson-scale covariance `Cov(N, z)`.
+        kendall: Kendall's tau-b over `(a, b)` with tie-adjusted concordance.
+        covariance: Pearson-scale covariance `Cov(a, b)`.
     """
 
     pearson: torch.Tensor
@@ -24,38 +23,37 @@ class LengthCorrelation:
     kendall: torch.Tensor
     covariance: torch.Tensor
 
-    def to_cpu(self) -> LengthCorrelation:
-        """Moves all tensors in the LengthCorrelation to CPU and returns a new instance."""
-        return LengthCorrelation(**{f.name: getattr(self, f.name).cpu() for f in fields(self)})
+    def to_cpu(self) -> Correlation:
+        """Moves all tensors in the Correlation to CPU and returns a new instance."""
+        return Correlation(**{f.name: getattr(self, f.name).cpu() for f in fields(self)})
 
 
-def calculate_length_correlation(
-    sequence_lengths: torch.Tensor,
-    per_rollout_values: torch.Tensor,
-) -> LengthCorrelation:
+def calculate_correlation(
+    a: torch.Tensor,
+    b: torch.Tensor,
+) -> Correlation:
     """
-    Measures co-movement between per-rollout generation lengths and a per-rollout
-    value of interest.
+    Measures co-movement between two per-rollout values.
 
     Args:
-        sequence_lengths: Tensor of shape [M] with rollout lengths `N^(i)`.
-        per_rollout_values: Tensor of shape [M] with rollout values `z^(i)`.
+        a: Tensor of shape [M].
+        b: Tensor of shape [M].
 
     Returns:
-        `LengthCorrelation` containing Pearson/Spearman/Kendall coefficients and
-        the Pearson covariance computed over the M rollouts.
+        `Correlation` containing Pearson/Spearman/Kendall coefficients and
+        the Pearson covariance computed over the M paired observations.
     """
     # [2, M]
-    pairs = torch.stack([sequence_lengths, per_rollout_values], dim=0)
+    pairs = torch.stack([a, b], dim=0)
     covariance = torch.cov(pairs, correction=1)[0, 1]
     pearson = torch.corrcoef(pairs)[0, 1]
 
-    lengths_f32 = sequence_lengths.to(dtype=torch.float32)
-    values_f32 = per_rollout_values.to(dtype=torch.float32)
-    spearman = spearman_corrcoef(lengths_f32, values_f32)
-    kendall = kendall_rank_corrcoef(lengths_f32, values_f32, variant="b")
+    a_f32 = a.to(dtype=torch.float32)
+    b_f32 = b.to(dtype=torch.float32)
+    spearman = spearman_corrcoef(a_f32, b_f32)
+    kendall = kendall_rank_corrcoef(a_f32, b_f32, variant="b")
 
-    return LengthCorrelation(
+    return Correlation(
         pearson=pearson,
         spearman=spearman,
         kendall=kendall,
@@ -64,20 +62,20 @@ def calculate_length_correlation(
 
 
 def aggregate_prompt_controlled_correlation(
-    length_correlations: list[LengthCorrelation],
+    correlations: list[Correlation],
     per_prompt_rollout_counts: list[int],
-) -> LengthCorrelation:
+) -> Correlation:
     """
-    Aggregates per-prompt `LengthCorrelation` across prompts while controlling
+    Aggregates per-prompt `Correlation` across prompts while controlling
     for prompt effects.
 
-    For each prompt p, with rollout number i ranging from 1 to `n_p`:
-    - `N^(p) = {N^(p,i)}_{i=1}^{n_p}` is a list of rollout lengths for prompt p.
-    - `z^(p) = {z^(p,i)}_{i=1}^{n_p}` is a list of per-rollout values being correlated with length.
-        - Generation tree entropy rate: a list of entropy rates per rollout, i.e.,
-            `z^(p,i) = r^(p,i)_N = H^(p,i)_sum / N^(p,i)`.
-        - Semantic diversity: a list of mean dissimilarity from each rollout to other rollouts,
-            i.e., `z^(p,i) = d^(p,i) = 1 - (1/(M-1)) * sum_{j!=i} <e_(p,i), e_(p,j)>`
+    For each prompt p, with rollout number i ranging from 1 to `n_p`, the per-prompt
+    `Correlation` summarizes co-movement between two per-rollout values
+    `a^(p) = {a^(p,i)}_{i=1}^{n_p}` and `b^(p) = {b^(p,i)}_{i=1}^{n_p}`.
+    - Generation tree entropy rate: `a = N` (rollout length) and `b = r_N` (entropy rate),
+        where `r^(p,i)_N = H^(p,i)_sum / N^(p,i)`.
+    - Semantic diversity: `a = N` (rollout length) and `b = d` (list of mean dissimilarity from
+        each rollout to other rollouts), `where d^(p,i) = 1 - (1/(M-1)) * sum_{j!=i} <e_(p,i), e_(p,j)>`.
 
     Per-coefficient aggregation:
     - Pearson and Spearman (bounded and non-linear): Fisher-z transform, weighted mean
@@ -87,19 +85,19 @@ def aggregate_prompt_controlled_correlation(
     - Covariance: weighted mean with weights `n_p - 1`.
 
     Args:
-        length_correlations: List of length P where p-th entry is `LengthCorrelation`
+        correlations: List of length P where p-th entry is `Correlation`
         containing 4 co-movement measures computed for prompt p.
         per_prompt_rollout_counts: List of length P where p-th entry is prompt
             rollout count `n_p` as an int.
 
     Returns:
-        `LengthCorrelation` containing the prompt-controlled aggregates of the
+        `Correlation` containing the prompt-controlled aggregates of the
         Pearson, Spearman, and Kendall coefficients and the Pearson-scale covariance.
     """
-    pearson = torch.stack([lc.pearson for lc in length_correlations]) # [P]
-    spearman = torch.stack([lc.spearman for lc in length_correlations]) # [P]
-    kendall = torch.stack([lc.kendall for lc in length_correlations]) # [P]
-    covariance = torch.stack([lc.covariance for lc in length_correlations]) # [P]
+    pearson = torch.stack([c.pearson for c in correlations]) # [P]
+    spearman = torch.stack([c.spearman for c in correlations]) # [P]
+    kendall = torch.stack([c.kendall for c in correlations]) # [P]
+    covariance = torch.stack([c.covariance for c in correlations]) # [P]
 
     counts = torch.as_tensor(
         per_prompt_rollout_counts,
@@ -110,7 +108,7 @@ def aggregate_prompt_controlled_correlation(
     kendall_pair_weights = (counts * (counts - 1.0) / 2.0).clamp_min(0.0)
     covariance_weights = (counts - 1.0).clamp_min(0.0)
 
-    return LengthCorrelation(
+    return Correlation(
         pearson=_aggregate_via_fisher_z(pearson, fisher_weights),
         spearman=_aggregate_via_fisher_z(spearman, fisher_weights),
         kendall=_weighted_nanmean(kendall, kendall_pair_weights),

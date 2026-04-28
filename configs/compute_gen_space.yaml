@@ -1,15 +1,16 @@
 defaults:
   - paths: default
-  - inference: a100
+  - inference: cpu
   - model: qwen3-8b-instruct
   - dataset: coding
-  - reward: none
-  - embedding: none
   - wandb: online
   - _self_
 
-rollout_file: generation_rollouts
-metric_file: generation_space_metrics.pt
+run_name: default
+prompt_stats_file: prompt_rollout_stats.pt
+pooled_metrics_file: pooled_metrics.json
+keep_fraction: 0.7
+use_reward_filter: false
 
 hydra:
   job:

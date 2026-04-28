@@ -1,14 +1,14 @@
-from .length_correlation import (
-    LengthCorrelation,
+from .correlation import (
+    Correlation,
     aggregate_prompt_controlled_correlation,
-    calculate_length_correlation,
+    calculate_correlation,
 )
 from .prompt_metrics import PromptMetrics, calculate_prompt_metrics
 
 __all__ = [
-    "LengthCorrelation",
+    "Correlation",
     "aggregate_prompt_controlled_correlation",
-    "calculate_length_correlation",
+    "calculate_correlation",
     "PromptMetrics",
     "calculate_prompt_metrics",
 ]

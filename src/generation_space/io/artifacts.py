@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import torch
+from safetensors import safe_open
+
 
 def build_run_dir(
     root: Path | str,
@@ -104,3 +107,28 @@ def verify_prompt_shards_complete(run_dir: Path, artifact: str, expected_count: 
             f"Incomplete shards for artifact '{artifact}' at {run_dir}: "
             f"{existing_shards} shards on disk, expected {expected_count}."
         )
+
+
+def load_prompt_shard_tensor(
+    run_dir: Path,
+    artifact: str,
+    prompt_index: int,
+    key: str,
+    device: str | torch.device = "cpu",
+) -> torch.Tensor:
+    """
+    Loads a tensor from one prompt's per-prompt safetensors shard.
+
+    Args:
+        run_dir: Directory holding one pipeline run's artifacts.
+        artifact: Artifact name.
+        prompt_index: Zero-based prompt index.
+        key: Tensor key inside the safetensors shard.
+        device: Device to load the tensor onto.
+
+    Returns:
+        Tensor stored under `key` in the shard.
+    """
+    path = build_prompt_shard_path(run_dir, artifact, prompt_index)
+    with safe_open(str(path), framework="pt", device=str(device)) as f:
+        return f.get_tensor(key)

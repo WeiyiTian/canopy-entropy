@@ -19,7 +19,7 @@ def compute_pooled_metrics(
     Returns:
         Dictionary with `"raw"` and `"kept"` entries. Each entry is a metric
         dictionary keyed by `GENERATION_SPACE_METRIC_KEYS`. The two
-        `*_vs_length` entries are `LengthCorrelation`, `semantic_diversity_bucketed_mean`
+        `*_vs_length` entries are `Correlation`, `semantic_diversity_bucketed_mean`
         maps length bucket names to scalar tensors, and all others are scalar tensors.
 
     Notes:
@@ -60,7 +60,7 @@ def _pool_per_prompt_metrics(
 
     Returns:
         Metric dictionary keyed by `GENERATION_SPACE_METRIC_KEYS`. The two
-        `*_vs_length` entries are `LengthCorrelation`, `semantic_diversity_bucketed_mean`
+        `*_vs_length` entries are `Correlation`, `semantic_diversity_bucketed_mean`
         maps length bucket names to scalar tensors, and all others are scalar tensors.
 
     Notes:
@@ -87,11 +87,11 @@ def _pool_per_prompt_metrics(
     branching_factor = torch.exp(mean_entropy_rate)
 
     entropy_rate_vs_length = aggregate_prompt_controlled_correlation(
-        length_correlations=[m.entropy_rate_vs_length for m in per_prompt_metrics],
+        correlations=[m.entropy_rate_vs_length for m in per_prompt_metrics],
         per_prompt_rollout_counts=per_prompt_rollout_counts,
     )
     semantic_diversity_vs_length = aggregate_prompt_controlled_correlation(
-        length_correlations=[m.semantic_diversity_vs_length for m in per_prompt_metrics],
+        correlations=[m.semantic_diversity_vs_length for m in per_prompt_metrics],
         per_prompt_rollout_counts=per_prompt_rollout_counts,
     )
 
