@@ -58,25 +58,22 @@ class SkyworkRewardPipeline:
             ]
             for response in responses
         ]
-        input_ids = self.tokenizer.apply_chat_template(
-            conversations,
-            tokenize=True,
-            padding=False,
-            truncation=False,
-        )
-        sorted_indices = sorted(range(len(input_ids)), key=lambda idx: len(input_ids[idx]))
+        sorted_indices = sorted(range(len(responses)), key=lambda idx: len(responses[idx]))
         sorted_indices_tensor = torch.tensor(sorted_indices, dtype=torch.long, device=self.device)
 
         scores = torch.empty(len(responses), dtype=torch.float32, device=self.device)
         for start in range(0, len(sorted_indices), self.batch_size):
             batch_indices = sorted_indices[start : start + self.batch_size]
-            batch_inputs = self.tokenizer.pad(
-                [{"input_ids": input_ids[idx]} for idx in batch_indices],
+            batch_inputs = self.tokenizer.apply_chat_template(
+                [conversations[idx] for idx in batch_indices],
+                tokenize=True,
                 padding=True,
+                truncation=False,
                 return_tensors="pt",
+                return_dict=True,
             ).to(self.device)
 
-            logits = self.model(**batch_inputs).logits[:, 0]
-            scores[sorted_indices_tensor[start : start + self.batch_size]] = logits
+            logits = self.model(**batch_inputs).logits[:, 0] # [B, 1] => [B]
+            scores[sorted_indices_tensor[start : start + self.batch_size]] = logits.float()
 
         return scores

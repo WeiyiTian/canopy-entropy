@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXP_FILTER="${1:-}"
+SCRIPT_NAME="${1:-generate_rollouts}"
+EXP_FILTER="${2:-}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOGS_ROOT="$REPO_ROOT/logs/generate_rollouts/multirun"
+LOGS_ROOT="$REPO_ROOT/logs/${SCRIPT_NAME}/multirun"
 
 if [ ! -d "$LOGS_ROOT" ]; then
   echo "Logs root not found: $LOGS_ROOT" >&2
+  echo "Usage: $0 [script_name] [experiment_filter]" >&2
+  echo "  script_name defaults to 'generate_rollouts'" >&2
   exit 1
 fi
 
@@ -42,7 +45,42 @@ if [ -z "$FIRST" ]; then
 fi
 ARRAY_JOB=$(basename "$FIRST" | cut -d_ -f1)
 
-tail -F "$LATEST"/.submitit/*/*_log.out &
+LABEL_LINES=""
+for d in "$LATEST"/[0-9]*/; do
+  [ -d "$d" ] || continue
+  base="$(basename "$d")"
+  task_idx="${base%%_*}"
+  override="${base#${task_idx}_}"
+  LABEL_LINES+="${task_idx}|${override}"$'\n'
+done
+
+tail -F "$LATEST"/.submitit/*/*_log.err 2>/dev/null \
+  | awk -v labels="$LABEL_LINES" '
+    BEGIN {
+      n = split(labels, ls, "\n")
+      for (i = 1; i <= n; i++) {
+        if (ls[i] != "") {
+          k = index(ls[i], "|")
+          if (k > 0) {
+            map[substr(ls[i], 1, k-1)] = substr(ls[i], k+1)
+          }
+        }
+      }
+    }
+    /^==> .+_log\.err <==$/ {
+      if (match($0, /\.submitit\/[0-9]+_[0-9]+/)) {
+        seg = substr($0, RSTART, RLENGTH)
+        split(seg, parts, "_")
+        taskid = parts[length(parts)]
+        desc = (taskid in map) ? map[taskid] : "?"
+        printf "\n===== [task %s] %s =====\n", taskid, desc
+        print
+        fflush()
+        next
+      }
+    }
+    { print; fflush() }
+  ' &
 TAIL_PID=$!
 
 cleanup() {

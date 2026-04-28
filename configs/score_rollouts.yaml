@@ -1,11 +1,10 @@
 defaults:
   - paths: default
   - inference: a100
-  - launcher: generate
+  - launcher: process
   - model: qwen3-8b-instruct
   - dataset: coding
-  - sampling: default
-  - wandb: online
+  - reward: skywork
   - _self_
 
 run_name: default

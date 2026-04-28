@@ -1,12 +1,8 @@
 # @package _global_
 defaults:
   - override /hydra/launcher: submitit_slurm
-  - override /inference: a100
-
-sweep_name: llama3.1-8b-matrix
 
 hydra:
-  mode: MULTIRUN
   launcher:
     timeout_min: 360
     mem_gb: 100
@@ -19,7 +15,3 @@ hydra:
     constraint: "a100|h100|h200"
     additional_parameters:
       export: "ALL,PYTHONUNBUFFERED=1"
-  sweeper:
-    params:
-      model: llama3.1-8b-base,llama3.1-8b-instruct
-      dataset: coding,completion,math,stories

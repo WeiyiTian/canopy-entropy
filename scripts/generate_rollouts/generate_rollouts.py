@@ -7,33 +7,34 @@ from dotenv import load_dotenv
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
 
+from src.constants import ROLLOUT_SHARDS_ARTIFACT
 from src.generation_space.core import GenerationMetadata, PromptRollouts
 from src.generation_space.io import (
+    build_prompt_shard_path,
     build_rollout_metadata_path,
-    build_rollout_shard_path,
-    count_existing_shards,
+    build_run_dir,
+    count_prompt_shards,
     load_prompts,
-    reset_rollout_dir,
+    reset_prompt_shards,
     resume_rollouts,
 )
 from src.generation_space.reporting import resolve_run_name
 from src.metrics.generation_tree import step_conditional_entropy_from_logprobs
-from src.models import generate_step_scores, load_generation_backend
-from src.utils import build_artifact_path, build_model_path, clear_runtime_memory
+from src.models import build_model_path, generate_step_scores, load_generation_backend
 
 load_dotenv()
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="generate_rollouts")
 def main(cfg: DictConfig) -> None:
-    rollout_dir = build_artifact_path(
+    run_dir = build_run_dir(
         cfg.paths.outputs_root,
         cfg.dataset.file_name,
         cfg.model.name,
         cfg.model.variant,
-        cfg.rollout_file,
+        cfg.run_name,
     )
-    is_resume = cfg.resume and build_rollout_metadata_path(rollout_dir).exists()
+    is_resume = cfg.resume and build_rollout_metadata_path(run_dir).exists()
 
     if cfg.sampling.top_k is not None and cfg.sampling.top_k > 0:
         assert cfg.sampling.logprobs >= cfg.sampling.top_k, (
@@ -58,13 +59,14 @@ def main(cfg: DictConfig) -> None:
     )
 
     if is_resume:
-        start_index = resume_rollouts(rollout_dir, requested_metadata)
-        print(f"Resuming rollouts from index {start_index} at {rollout_dir}")
+        start_index = resume_rollouts(run_dir, requested_metadata)
+        print(f"Resuming rollouts from index {start_index} at {run_dir}")
         if start_index >= len(prompts):
-            print(f"Rollouts already complete: {start_index}/{len(prompts)} shards at {rollout_dir}")
+            print(f"Rollouts already complete: {start_index}/{len(prompts)} shards at {run_dir}")
             return
     else:
-        reset_rollout_dir(rollout_dir, requested_metadata)
+        reset_prompt_shards(run_dir, ROLLOUT_SHARDS_ARTIFACT)
+        requested_metadata.save(build_rollout_metadata_path(run_dir))
         start_index = 0
 
     run_name = resolve_run_name(
@@ -146,17 +148,18 @@ def main(cfg: DictConfig) -> None:
                     sequence_lengths=sequence_lengths,
                     step_conditional_entropy=step_conditional_entropy,
                     sequence_step_logprobs=sequence_step_logprobs if cfg.sampling.save_logprobs else None,
-                ).save(build_rollout_shard_path(rollout_dir, absolute_offset + prompt_offset))
+                ).save(
+                    build_prompt_shard_path(
+                        run_dir, ROLLOUT_SHARDS_ARTIFACT, absolute_offset + prompt_offset
+                    )
+                )
 
             progress.update(len(prompt_batch))
 
-    del model, tokenizer
-    clear_runtime_memory()
-
-    final_shard_count = count_existing_shards(rollout_dir)
+    final_shard_count = count_prompt_shards(run_dir, ROLLOUT_SHARDS_ARTIFACT)
     summary = {
         "status": "ok",
-        "rollout_dir": str(rollout_dir),
+        "run_dir": str(run_dir),
         "num_prompts": len(prompts),
         "shards_on_disk": final_shard_count,
         "shards_generated_this_run": final_shard_count - start_index,

@@ -5,6 +5,23 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizerBase
 from vllm import LLM
 
+from src.constants import MODEL_VARIANTS
+
+
+def build_model_path(model_root: Path | str, model_name: str, model_variant: str) -> Path:
+    """
+    Constructs the path for a locally downloaded model variant.
+
+    Args:
+        model_root: Root directory containing locally available model weights.
+        model_name: Model family key.
+        model_variant: Model variant key, e.g., base or instruct.
+
+    Returns:
+        Path to the selected model variant.
+    """
+    return Path(model_root) / MODEL_VARIANTS[model_name][model_variant]
+
 
 def load_generation_backend(
     model_path: Path | str,
@@ -74,6 +91,7 @@ def load_hf_model(
     model_cls: type[PreTrainedModel],
     model_path: Path | str,
     device: torch.device | str,
+    dtype: torch.dtype = torch.bfloat16,
     **kwargs,
 ) -> PreTrainedModel:
     """
@@ -83,12 +101,13 @@ def load_hf_model(
         model_cls: Hugging Face model class with `from_pretrained`.
         model_path: Local model path for model loading.
         device: Target device where the model should run.
+        dtype: Weight dtype for inference. Defaults to bf16.
         **kwargs: Additional kwargs forwarded to `from_pretrained`.
 
     Returns:
         Initialized Hugging Face model in evaluation mode.
     """
-    model = model_cls.from_pretrained(model_path, **kwargs)
+    model = model_cls.from_pretrained(model_path, dtype=dtype, **kwargs)
     model.to(device)
     model.eval()
 

@@ -2,11 +2,11 @@
 defaults:
   - override /inference: a100
 
-sweep_name: gemma-3-12b-matrix
+sweep_name: llama-3.1-8b-matrix
 
 hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      model: gemma-3-12b-base,gemma-3-12b-instruct
+      model: llama-3.1-8b-base,llama-3.1-8b-instruct
       dataset: coding,completion,math,stories

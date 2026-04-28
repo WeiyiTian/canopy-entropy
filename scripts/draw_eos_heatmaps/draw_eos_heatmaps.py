@@ -1,18 +1,20 @@
 import argparse
+import gc
 import json
 from pathlib import Path
 
 import torch
 from tqdm import tqdm
 
+from src.constants import ROLLOUT_SHARDS_ARTIFACT
 from src.generation_space.core import GenerationMetadata, PromptRollouts
 from src.generation_space.io import (
+    build_prompt_shard_path,
     build_rollout_metadata_path,
-    build_rollout_shard_path,
-    verify_rollouts_complete,
+    build_run_dir,
+    verify_prompt_shards_complete,
 )
-from src.utils import build_artifact_path, build_model_path, clear_runtime_memory
-from src.models import load_local_model, load_tokenizer, score_eos_trajectories
+from src.models import build_model_path, load_local_model, load_tokenizer, score_eos_trajectories
 from src.settings import settings
 from src.visualization import (
     plot_eos_rollout_heatmap,
@@ -36,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--file-name", type=str, default="coding.jsonl")
     parser.add_argument("--model-name", type=str, default="Qwen2.5-7b")
     parser.add_argument("--model-variant", type=str, default="instruct")
-    parser.add_argument("--rollout-file", type=str, default="generation_rollouts")
+    parser.add_argument("--run-name", type=str, default="default")
     parser.add_argument("--save-file", type=str, default="eos_heatmap_trajectories.pt")
     parser.add_argument("--no-save", action="store_true")
     parser.add_argument("--model-device", type=str, default="cuda")
@@ -69,15 +71,15 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
     """
     Loads saved rollouts, rescoring them with the HF model, and builds the EOS payload.
     """
-    rollout_dir = build_artifact_path(
+    run_dir = build_run_dir(
         args.outputs_root,
         args.file_name,
         args.model_name,
         args.model_variant,
-        args.rollout_file,
+        args.run_name,
     )
-    metadata = GenerationMetadata.load(build_rollout_metadata_path(rollout_dir))
-    verify_rollouts_complete(rollout_dir, metadata)
+    metadata = GenerationMetadata.load(build_rollout_metadata_path(run_dir))
+    verify_prompt_shards_complete(run_dir, ROLLOUT_SHARDS_ARTIFACT, metadata.num_prompts)
     prompt_count = metadata.num_prompts
 
     model_path = build_model_path(
@@ -96,7 +98,7 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
         dynamic_ncols=True,
     ):
         rollout = PromptRollouts.load(
-            build_rollout_shard_path(rollout_dir, prompt_index),
+            build_prompt_shard_path(run_dir, ROLLOUT_SHARDS_ARTIFACT, prompt_index),
             device=args.model_device,
         )
         scored = score_eos_trajectories(
@@ -112,11 +114,13 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
         del rollout
 
     del model, tokenizer
-    clear_runtime_memory()
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     return {
         "metadata": metadata.to_dict(),
-        "rollout_path": str(rollout_dir),
+        "rollout_path": str(run_dir),
         "top_k": args.top_k,
         "prompt_eos_logprob_trajectories": prompt_eos_logprob_trajectories,
         "prompt_eos_topk_membership_trajectories": prompt_eos_topk_membership_trajectories,
@@ -136,20 +140,15 @@ def _plot_eos_payload(
     prompt_eos_topk_membership_trajectories = eos_payload["prompt_eos_topk_membership_trajectories"]
     top_k = int(eos_payload["top_k"])
 
-    logprob_output_path = build_artifact_path(
+    results_run_dir = build_run_dir(
         args.results_root,
         prompt_file,
         args.model_name,
         args.model_variant,
-        f"{args.group_mode}_{args.logprob_output_file}",
+        args.run_name,
     )
-    topk_output_path = build_artifact_path(
-        args.results_root,
-        prompt_file,
-        args.model_name,
-        args.model_variant,
-        f"{args.group_mode}_{args.topk_output_file}",
-    )
+    logprob_output_path = results_run_dir / f"{args.group_mode}_{args.logprob_output_file}"
+    topk_output_path = results_run_dir / f"{args.group_mode}_{args.topk_output_file}"
 
     plot_eos_rollout_heatmap(
         prompt_eos_logprob_trajectories=prompt_eos_logprob_trajectories,
@@ -175,13 +174,13 @@ def _plot_eos_payload(
 
 def main() -> None:
     args = parse_args()
-    save_path = build_artifact_path(
+    save_path = build_run_dir(
         args.outputs_root,
         args.file_name,
         args.model_name,
         args.model_variant,
-        args.save_file,
-    )
+        args.run_name,
+    ) / args.save_file
 
     if args.mode == "plot_only":
         eos_payload: dict[str, object] = torch.load(

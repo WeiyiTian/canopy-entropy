@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - override /hydra/launcher: submitit_slurm
+
+hydra:
+  launcher:
+    timeout_min: 90
+    mem_gb: 60
+    cpus_per_task: 8
+    gpus_per_node: 1
+    nodes: 1
+    tasks_per_node: 1
+    array_parallelism: 20
+    partition: general
+    constraint: "a100|h100|h200"
+    additional_parameters:
+      export: "ALL,PYTHONUNBUFFERED=1"

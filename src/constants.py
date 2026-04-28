@@ -7,7 +7,7 @@ MODEL_VARIANTS = {
         "base": "Qwen3-8B-Base",
         "instruct": "Qwen3-8B",
     },
-    "Llama3.1-8b": {
+    "Llama-3.1-8b": {
         "base": "Llama-3.1-8B",
         "instruct": "Llama-3.1-8B-Instruct",
     },
@@ -29,3 +29,7 @@ GENERATION_SPACE_METRIC_KEYS = (
 )
 
 LENGTH_BUCKET_NAMES = ("short", "medium", "long")
+
+ROLLOUT_SHARDS_ARTIFACT = "rollout_shards"
+EMBEDDING_SHARDS_ARTIFACT = "embedding_shards"
+REWARD_SHARDS_ARTIFACT = "reward_shards"
