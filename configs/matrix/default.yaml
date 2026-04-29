@@ -1,0 +1,4 @@
+models: [Qwen3-8b, Llama-3.1-8b, Gemma-3-12b]
+datasets: [coding, math, stories, completion]
+variants: [base, instruct]
+run_name: default

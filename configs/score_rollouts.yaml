@@ -17,7 +17,7 @@ hydra:
     config:
       override_dirname:
         exclude_keys:
-          - experiment
+          - sweep
   run:
     dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
   sweep:

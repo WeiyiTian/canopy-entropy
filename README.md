@@ -2,18 +2,18 @@
 
 debug
 ```
-python -m scripts.generate_rollouts.generate_rollouts --cfg job +experiment=debug
-python -m scripts.generate_rollouts.generate_rollouts +experiment=debug
+python -m scripts.generate_rollouts.generate_rollouts --cfg job +sweep=debug
+python -m scripts.generate_rollouts.generate_rollouts +sweep=debug
 ```
 
 generate rollouts
 ```
-python -m scripts.generate_rollouts.generate_rollouts +experiment=gemma-3-12b-matrix
-python -m scripts.generate_rollouts.generate_rollouts +experiment=llama3.1-8b-matrix
-python -m scripts.generate_rollouts.generate_rollouts +experiment=qwen3-8b-matrix
-python -m scripts.generate_rollouts.generate_rollouts +experiment=all-families-matrix
+python -m scripts.generate_rollouts.generate_rollouts +sweep=gemma-3-12b-matrix
+python -m scripts.generate_rollouts.generate_rollouts +sweep=llama3.1-8b-matrix
+python -m scripts.generate_rollouts.generate_rollouts +sweep=qwen3-8b-matrix
+python -m scripts.generate_rollouts.generate_rollouts +sweep=all-families-matrix
 
-python -m scripts.generate_rollouts.generate_rollouts +experiment=all-families-matrix resume=false 
+python -m scripts.generate_rollouts.generate_rollouts +sweep=all-families-matrix resume=false 
 ```
 
 ```

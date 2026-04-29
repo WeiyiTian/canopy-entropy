@@ -2,26 +2,26 @@
 set -euo pipefail
 
 SCRIPT_NAME="${1:-generate_rollouts}"
-EXP_FILTER="${2:-}"
+SWEEP_FILTER="${2:-}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOGS_ROOT="$REPO_ROOT/logs/${SCRIPT_NAME}/multirun"
 
 if [ ! -d "$LOGS_ROOT" ]; then
   echo "Logs root not found: $LOGS_ROOT" >&2
-  echo "Usage: $0 [script_name] [experiment_filter]" >&2
+  echo "Usage: $0 [script_name] [sweep_filter]" >&2
   echo "  script_name defaults to 'generate_rollouts'" >&2
   exit 1
 fi
 
-if [ -n "$EXP_FILTER" ]; then
-  LATEST=$(ls -td "$LOGS_ROOT/${EXP_FILTER}"*/*/ 2>/dev/null | head -1 || true)
+if [ -n "$SWEEP_FILTER" ]; then
+  LATEST=$(ls -td "$LOGS_ROOT/${SWEEP_FILTER}"*/*/ 2>/dev/null | head -1 || true)
 else
   LATEST=$(ls -td "$LOGS_ROOT"/*/*/ 2>/dev/null | head -1 || true)
 fi
 
 if [ -z "$LATEST" ]; then
-  if [ -n "$EXP_FILTER" ]; then
-    echo "No sweeps found matching '${EXP_FILTER}*' under $LOGS_ROOT" >&2
+  if [ -n "$SWEEP_FILTER" ]; then
+    echo "No sweeps found matching '${SWEEP_FILTER}*' under $LOGS_ROOT" >&2
   else
     echo "No sweeps found under $LOGS_ROOT" >&2
   fi

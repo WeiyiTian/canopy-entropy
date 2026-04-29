@@ -15,11 +15,11 @@ load_dotenv()
 @hydra.main(version_base=None, config_path="../../configs", config_name="fit_interaction_regression")
 def main(cfg: DictConfig) -> None:
     prompt_stats_paths = [
-        build_run_dir(cfg.paths.outputs_root, dataset, model, variant, cfg.panel.run_name)
-        / cfg.panel.prompt_stats_file
-        for model in cfg.panel.models
-        for dataset in cfg.panel.datasets
-        for variant in cfg.panel.variants
+        build_run_dir(cfg.paths.outputs_root, dataset, model, variant, cfg.matrix.run_name)
+        / cfg.prompt_stats_file
+        for model in cfg.matrix.models
+        for dataset in cfg.matrix.datasets
+        for variant in cfg.matrix.variants
     ]
 
     panel = build_panel(prompt_stats_paths)

@@ -3,15 +3,11 @@ defaults:
   - matrix: default
   - _self_
 
-prompt_stats_file: prompt_rollout_stats.pt
-
-regression:
-  formula: "D ~ R_bar * C(model_variant, Treatment(reference='base')) + N_bar + C(task) + C(model_name)"
-  groups: prompt_uid
-  ft_variant: instruct
+bins: 50
+label_fontsize: 11.0
 
 output:
-  results_path: ${paths.results_root}/stats/interaction_regression.json
+  path: ${paths.results_root}/plots/sequence_length_grid.pdf
 
 hydra:
   job:

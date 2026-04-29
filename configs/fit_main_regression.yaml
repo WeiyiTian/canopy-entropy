@@ -1,13 +1,9 @@
 defaults:
   - paths: default
+  - matrix: default
   - _self_
 
-panel:
-  models: [Qwen3-8b, Llama-3.1-8b]
-  datasets: [coding, math, stories]
-  variants: [base, instruct]
-  run_name: default
-  prompt_stats_file: prompt_rollout_stats.pt
+prompt_stats_file: prompt_rollout_stats.pt
 
 regression:
   formula: "D ~ R_bar + N_bar + C(task) + C(model_name) * C(model_variant)"
