@@ -85,7 +85,7 @@ def main(cfg: DictConfig) -> None:
 
     output_path = Path(cfg.output.path)
     plot_sequence_length_grid(
-        data=lengths_by_cell,
+        lengths_by_cell=lengths_by_cell,
         families=families,
         datasets=datasets,
         output_path=output_path,

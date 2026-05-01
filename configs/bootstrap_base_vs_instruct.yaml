@@ -1,0 +1,23 @@
+defaults:
+  - paths: default
+  - matrix: default
+  - _self_
+
+prompt_stats_file: prompt_rollout_stats.pt
+
+bootstrap:
+  n_boot: 2000
+  seed: 42
+  ci_level: 0.95
+
+output:
+  results_path: ${paths.results_root}/stats/base_vs_instruct.json
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
