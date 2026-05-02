@@ -1,9 +1,11 @@
 import argparse
 import gc
 import json
+import os
 from pathlib import Path
 
 import torch
+from dotenv import load_dotenv
 from tqdm import tqdm
 
 from src.constants import ROLLOUT_SHARDS_ARTIFACT
@@ -15,11 +17,12 @@ from src.generation_space.io import (
     verify_prompt_shards_complete,
 )
 from src.models import build_model_path, load_local_model, load_tokenizer, score_eos_trajectories
-from src.settings import settings
 from src.visualization import (
     plot_eos_rollout_heatmap,
     plot_eos_topk_membership_heatmap,
 )
+
+load_dotenv()
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,9 +35,9 @@ def parse_args() -> argparse.Namespace:
         default="compute_plot",
         choices=("compute_plot", "plot_only", "compute_only"),
     )
-    parser.add_argument("--model-root", type=Path, default=Path(settings.model_dir))
-    parser.add_argument("--outputs-root", type=Path, default=Path(settings.outputs_dir))
-    parser.add_argument("--results-root", type=Path, default=Path(settings.results_dir))
+    parser.add_argument("--model-root", type=Path, default=Path(os.environ["MODEL_DIR"]))
+    parser.add_argument("--outputs-root", type=Path, default=Path(os.environ["OUTPUTS_DIR"]))
+    parser.add_argument("--results-root", type=Path, default=Path(os.environ["RESULTS_DIR"]))
     parser.add_argument("--file-name", type=str, default="coding.jsonl")
     parser.add_argument("--model-name", type=str, default="Qwen2.5-7b")
     parser.add_argument("--model-variant", type=str, default="instruct")

@@ -1,0 +1,21 @@
+defaults:
+  - paths: default
+  - matrix: default
+  - _self_
+
+label_fontsize: 14.0
+bin_step: 5
+line_width: 1.6
+min_active_rollouts: 1
+
+output:
+  path: ${paths.results_root}/plots/entropy_rate_trajectory.pdf
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

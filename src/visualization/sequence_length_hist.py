@@ -26,7 +26,7 @@ def plot_sequence_length_histogram(
         output_path: Destination image path.
         bins: Number of histogram bins.
         title: Plot title.
-        label_fontsize: Font size used for the title, axis labels, and ticks.
+        label_fontsize: Base font size.
     """
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)

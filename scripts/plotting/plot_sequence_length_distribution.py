@@ -16,7 +16,7 @@ from src.generation_space.io import (
     load_prompt_shard_tensor,
     verify_prompt_shards_complete,
 )
-from src.visualization.sequence_length_hist import plot_sequence_length_grid
+from src.visualization import plot_sequence_length_grid, plot_sequence_length_kde
 
 load_dotenv()
 
@@ -49,7 +49,7 @@ def load_run_sequence_lengths(
     return torch.cat(chunks)
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="plot_sequence_length_grid")
+@hydra.main(version_base=None, config_path="../../configs", config_name="plot_sequence_length_distribution")
 def main(cfg: DictConfig) -> None:
     families = list(cfg.matrix.models)
     variants = list(cfg.matrix.variants)
@@ -84,14 +84,29 @@ def main(cfg: DictConfig) -> None:
             lengths_by_cell[(family, dataset)][variant] = lengths
 
     output_path = Path(cfg.output.path)
-    plot_sequence_length_grid(
-        lengths_by_cell=lengths_by_cell,
-        families=families,
-        datasets=datasets,
-        output_path=output_path,
-        bins=cfg.bins,
-        label_fontsize=cfg.label_fontsize,
-    )
+    if cfg.mode == "hist":
+        plot_sequence_length_grid(
+            lengths_by_cell=lengths_by_cell,
+            families=families,
+            datasets=datasets,
+            output_path=output_path,
+            bins=cfg.bins,
+            label_fontsize=cfg.label_fontsize,
+        )
+    elif cfg.mode == "kde":
+        plot_sequence_length_kde(
+            lengths_by_cell=lengths_by_cell,
+            families=families,
+            datasets=datasets,
+            output_path=output_path,
+            symlog_linthresh=cfg.symlog_linthresh,
+            symlog_linscale=cfg.symlog_linscale,
+            n_eval_points=cfg.n_eval_points,
+            label_fontsize=cfg.label_fontsize,
+            line_width=cfg.line_width,
+        )
+    else:
+        raise ValueError(f"Unknown mode: {cfg.mode} (expected 'hist' or 'kde')")
     print(f"Wrote: {output_path}")
 
 

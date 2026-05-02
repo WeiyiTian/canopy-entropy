@@ -1,10 +1,13 @@
 __pycache__/
 
-wandb/
 data/
+notes/
+pdf/
+notebooks/
+logs
 
 .env
+.codex
+.claude
 
-tmp/
-tests/
-notes/
+results/
