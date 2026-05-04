@@ -50,7 +50,7 @@ def fit_main_regression(
 
     Args:
         panel: DataFrame with one row per (model, variant, dataset, prompt)
-            with columns:`D`, `R_bar`, `N_bar`, `task`, `model_name`,
+            with columns: `D`, `R_bar`, `N_bar`, `task`, `model_name`,
             `model_variant`, plus `prompt_uid`.
         formula: Patsy formula for the fixed-effects part. The default treats
             `(model_name, model_variant)` as a single composite identifier via

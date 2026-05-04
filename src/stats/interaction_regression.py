@@ -69,7 +69,7 @@ def fit_interaction_regression(
 
     Args:
         panel: DataFrame with one row per (model, variant, dataset, prompt)
-            with columns:`D`, `R_bar`, `N_bar`, `task`, `model_name`,
+            with columns: `D`, `R_bar`, `N_bar`, `task`, `model_name`,
             `model_variant`, plus `prompt_uid`.
         formula: Patsy formula for the fixed-effects part. The default
             interacts `R_bar` with `C(model_variant, Treatment(reference='base'))`

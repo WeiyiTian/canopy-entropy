@@ -72,9 +72,9 @@ def main(cfg: DictConfig) -> None:
                 [f"search_document: {text}" for text in generated_texts],
                 batch_size=cfg.embedding.batch_size,
                 convert_to_tensor=True,
-                normalize_embeddings=True,
                 show_progress_bar=False,
-            ).to("cpu", dtype=torch.float32)
+            ).to("cpu", dtype=torch.float32) # [M, D]
+            embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
             save_file({"embeddings": embeddings}, str(prompt_output_path))
             progress.update(1)
 
