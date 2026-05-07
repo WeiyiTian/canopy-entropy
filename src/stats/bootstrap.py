@@ -32,7 +32,7 @@ class _PromptComponents:
     Each field is a Tensor of shape [P], aligned by prompt index.
 
     Attributes:
-        tm_star_max: per-prompt mean trajectory entropy `(1/M) sum_i H^(i)_sum`.
+        ce_star_max: per-prompt mean trajectory entropy `(1/M) sum_i H^(i)_sum`.
         mean_length: per-prompt mean rollout length `(1/M) sum_i N^(i)`.
         entropy_rate: per-prompt mean rollout entropy rate `(1/M) sum_i r^(i)_N`.
         rollout_counts: per-prompt rollout count `n_p`, used for correlation weights.
@@ -40,7 +40,7 @@ class _PromptComponents:
             coefficients on their native scale (no Fisher-z applied yet).
     """
 
-    tm_star_max: torch.Tensor
+    ce_star_max: torch.Tensor
     mean_length: torch.Tensor
     entropy_rate: torch.Tensor
     rollout_counts: torch.Tensor
@@ -141,7 +141,7 @@ def _extract_components(prompt_stats: list[PromptRolloutStats]) -> _PromptCompon
     metrics = [s.raw_metrics for s in prompt_stats]
     correlations = [m.entropy_rate_vs_length for m in metrics]
     return _PromptComponents(
-        tm_star_max=torch.stack([m.tm_star_max for m in metrics]),
+        ce_star_max=torch.stack([m.ce_star_max for m in metrics]),
         mean_length=torch.stack([s.raw_sequence_lengths.mean() for s in prompt_stats]),
         entropy_rate=torch.stack([m.entropy_rate for m in metrics]),
         rollout_counts=torch.tensor(
@@ -168,7 +168,7 @@ def _aggregate(components: _PromptComponents, prompt_indices: torch.Tensor) -> d
         metric's pooled value for each bootstrap replicate.
     """
     # [B, P] => [B]
-    tm = torch.nanmean(components.tm_star_max[prompt_indices], dim=-1)
+    ce = torch.nanmean(components.ce_star_max[prompt_indices], dim=-1)
     mean_length = torch.nanmean(components.mean_length[prompt_indices], dim=-1)
     entropy_rate = torch.nanmean(components.entropy_rate[prompt_indices], dim=-1)
     correlation = aggregate_correlation_arrays(
@@ -179,8 +179,8 @@ def _aggregate(components: _PromptComponents, prompt_indices: torch.Tensor) -> d
         counts=components.rollout_counts[prompt_indices],
     )
     return {
-        "tm_star_max": tm,
-        "gen_ppl": torch.exp(tm / mean_length),
+        "ce_star_max": ce,
+        "gen_ppl": torch.exp(ce / mean_length),
         "branching_factor": torch.exp(entropy_rate),
         "entropy_rate_vs_length.covariance": correlation.covariance,
         "entropy_rate_vs_length.pearson": correlation.pearson,

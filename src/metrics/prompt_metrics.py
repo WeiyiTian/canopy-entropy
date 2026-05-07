@@ -6,7 +6,7 @@ import torch
 from src.constants import LENGTH_BUCKET_NAMES
 
 from .generation_tree.branching_factor import calculate_branching_factor, calculate_rollout_entropy_rate
-from .generation_tree.gen_ppl import calculate_gen_ppl, calculate_tm_star_max
+from .generation_tree.gen_ppl import calculate_gen_ppl, calculate_ce_star_max
 from .correlation import Correlation, calculate_correlation
 from .semantic_metrics.cosine_similarity import (
     BucketStats,
@@ -21,9 +21,9 @@ class PromptMetrics:
     Generation space metrics computed from M rollout-level tensors for one prompt.
 
     Attributes:
-        tm_star_max: `(1/M) * sum_i H^(i)_sum`,
+        ce_star_max: `(1/M) * sum_i H^(i)_sum`,
             where `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-        gen_ppl: `exp(tm_star_max / E[N])`, where N is the generation length.
+        gen_ppl: `exp(ce_star_max / E[N])`, where N is the generation length.
         branching_factor: `exp((1/M) * sum_i r^(i)_N)`, where `r^(i)_N = H^(i)_sum / N^(i)`.
         entropy_rate: `(1/M) * sum_i r^(i)_N`, the mean per-rollout entropy rate.
         entropy_rate_vs_length: `Correlation` capturing co-movement between rollout
@@ -40,7 +40,7 @@ class PromptMetrics:
             sequence length.
     """
 
-    tm_star_max: torch.Tensor
+    ce_star_max: torch.Tensor
     gen_ppl: torch.Tensor
     branching_factor: torch.Tensor
     entropy_rate: torch.Tensor
@@ -52,7 +52,7 @@ class PromptMetrics:
 
     def to_cpu(self) -> PromptMetrics:
         return PromptMetrics(
-            tm_star_max=self.tm_star_max.cpu(),
+            ce_star_max=self.ce_star_max.cpu(),
             gen_ppl=self.gen_ppl.cpu(),
             branching_factor=self.branching_factor.cpu(),
             entropy_rate=self.entropy_rate.cpu(),
@@ -87,13 +87,13 @@ def calculate_prompt_metrics(
         max_new_tokens: Generation length cap `T_max` used during sampling.
 
     Returns:
-        `PromptMetrics`: Generation space metrics, including tm_star_max, gen_ppl,
+        `PromptMetrics`: Generation space metrics, including ce_star_max, gen_ppl,
         branching_factor, entropy_rate_vs_length co-movement, truncation_rate,
         semantic_diversity, semantic_diversity_vs_length co-movement, and
         bucketed_semantic_diversity.
     """
     (
-        tm_star_max,
+        ce_star_max,
         gen_ppl,
         branching_factor,
         entropy_rate,
@@ -132,7 +132,7 @@ def calculate_prompt_metrics(
         )
 
     return PromptMetrics(
-        tm_star_max=tm_star_max,
+        ce_star_max=ce_star_max,
         gen_ppl=gen_ppl,
         branching_factor=branching_factor,
         entropy_rate=entropy_rate,
@@ -158,16 +158,16 @@ def calculate_tree_rollout_metrics(
             token length `N^(i)` of rollout i.
 
     Returns:
-        Tuple of (tm_star_max, gen_ppl, branching_factor, entropy_rate, entropy_rate_vs_length):
-        - tm_star_max: `(1/M) * sum_i H^(i)_sum`,
+        Tuple of (ce_star_max, gen_ppl, branching_factor, entropy_rate, entropy_rate_vs_length):
+        - ce_star_max: `(1/M) * sum_i H^(i)_sum`,
             where `H^(i)_sum = sum_t H(Y^(i)_t | X, y^(i)_<t)`.
-        - gen_ppl: `exp(tm_star_max / E[N])`, where N is the generation length.
+        - gen_ppl: `exp(ce_star_max / E[N])`, where N is the generation length.
         - branching_factor: `exp((1/M) * sum_i r^(i)_N)`, where `r^(i)_N = H^(i)_sum / N^(i)`.
         - entropy_rate: `(1/M) * sum_i r^(i)_N`, equal to `log(branching_factor)`.
         - entropy_rate_vs_length: `Correlation` capturing co-movement between `N` and `r_N`.
     """
-    tm_star_max = calculate_tm_star_max(sequence_entropy)
-    gen_ppl = calculate_gen_ppl(tm_star_max, sequence_lengths)
+    ce_star_max = calculate_ce_star_max(sequence_entropy)
+    gen_ppl = calculate_gen_ppl(ce_star_max, sequence_lengths)
 
     # [M], i-th entry is r^(i)_N = H^(i)_sum / N^(i)
     rollout_entropy_rate = calculate_rollout_entropy_rate(sequence_entropy, sequence_lengths)
@@ -175,4 +175,4 @@ def calculate_tree_rollout_metrics(
     branching_factor = calculate_branching_factor(entropy_rate)
     entropy_rate_vs_length = calculate_correlation(sequence_lengths, rollout_entropy_rate)
 
-    return tm_star_max, gen_ppl, branching_factor, entropy_rate, entropy_rate_vs_length
+    return ce_star_max, gen_ppl, branching_factor, entropy_rate, entropy_rate_vs_length

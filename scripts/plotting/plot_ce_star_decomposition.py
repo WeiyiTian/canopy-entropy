@@ -9,8 +9,8 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from src.generation_space.io import build_run_dir
-from src.metrics.generation_tree import TMDecomposition, tm_decomposition_from_pooled
-from src.visualization import plot_tm_decomposition_grid
+from src.metrics.generation_tree import CEStarMaxDecomposition, ce_star_decomposition_from_pooled
+from src.visualization import plot_ce_star_decomposition
 
 load_dotenv()
 
@@ -22,22 +22,22 @@ def load_run_decomposition(
     variant: str,
     run_name: str,
     pooled_metrics_file: str,
-) -> TMDecomposition | None:
-    """Reads the saved raw pooled metrics for one run and returns its TM* decomposition,
+) -> CEStarMaxDecomposition | None:
+    """Reads the saved raw pooled metrics for one run and returns its CE*_max decomposition,
     or None if missing."""
     run_dir = build_run_dir(results_root, file_name, family, variant, run_name)
     pooled_path = run_dir / pooled_metrics_file
     if not pooled_path.exists():
         return None
     pooled = json.loads(pooled_path.read_text())["raw"]
-    return tm_decomposition_from_pooled(
-        tm_star_max=float(pooled["tm_star_max"]),
+    return ce_star_decomposition_from_pooled(
+        ce_star_max=float(pooled["ce_star_max"]),
         gen_ppl=float(pooled["gen_ppl"]),
         branching_factor=float(pooled["branching_factor"]),
     )
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="plot_tm_decomposition")
+@hydra.main(version_base=None, config_path="../../configs", config_name="plot_ce_star_decomposition")
 def main(cfg: DictConfig) -> None:
     families = list(cfg.matrix.models)
     variants = list(cfg.matrix.variants)
@@ -76,7 +76,7 @@ def main(cfg: DictConfig) -> None:
             decompositions_by_cell[(family, dataset)][variant] = decomp
 
     output_path = Path(cfg.output.path)
-    plot_tm_decomposition_grid(
+    plot_ce_star_decomposition(
         decompositions_by_cell=decompositions_by_cell,
         families=families,
         datasets=datasets,

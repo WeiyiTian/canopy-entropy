@@ -15,7 +15,7 @@ load_dotenv()
 METRIC_SCALE_TYPES = {
     "gen_ppl": "positive",
     "branching_factor": "positive",
-    "tm_star_max": "positive",
+    "ce_star_max": "positive",
     "entropy_rate_vs_length.covariance": "signed",
     "entropy_rate_vs_length.pearson": "signed",
     "entropy_rate_vs_length.spearman": "signed",

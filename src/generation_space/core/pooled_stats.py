@@ -69,8 +69,8 @@ def _pool_per_prompt_metrics(
     """
     per_prompt_rollout_counts = [int(t.numel()) for t in per_prompt_sequence_lengths]
 
-    tm_star_max = torch.nanmean(
-        torch.stack([m.tm_star_max for m in per_prompt_metrics]) # [P]
+    ce_star_max = torch.nanmean(
+        torch.stack([m.ce_star_max for m in per_prompt_metrics]) # [P]
     )
     mean_length = torch.nanmean(
         torch.stack([lengths.to(dtype=torch.float32).mean() for lengths in per_prompt_sequence_lengths]) # [P]
@@ -83,7 +83,7 @@ def _pool_per_prompt_metrics(
             ) # P pairs of tensors with shape [n_p]
         ]) # [P] of mean([n_p] of entropy / length)
     )
-    gen_ppl = torch.exp(tm_star_max / mean_length)
+    gen_ppl = torch.exp(ce_star_max / mean_length)
     branching_factor = torch.exp(mean_entropy_rate)
 
     entropy_rate_vs_length = aggregate_prompt_controlled_correlation(
@@ -106,7 +106,7 @@ def _pool_per_prompt_metrics(
     )
 
     return {
-        "tm_star_max": tm_star_max,
+        "ce_star_max": ce_star_max,
         "gen_ppl": gen_ppl,
         "branching_factor": branching_factor,
         "entropy_rate_vs_length": entropy_rate_vs_length,

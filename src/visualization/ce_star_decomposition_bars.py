@@ -4,7 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
-from src.metrics.generation_tree import TMDecomposition
+from src.metrics.generation_tree import CEStarMaxDecomposition
 
 
 LENGTH_DRIVEN_COLOR = "#dfa6a7"
@@ -15,8 +15,8 @@ REFERENCE_COLOR = "#666666"
 FAMILY_GAP = 0.6
 
 
-def plot_tm_decomposition_grid(
-    decompositions_by_cell: dict[tuple[str, str], dict[str, TMDecomposition]],
+def plot_ce_star_decomposition(
+    decompositions_by_cell: dict[tuple[str, str], dict[str, CEStarMaxDecomposition]],
     families: list[str],
     datasets: list[str],
     variants: list[str],
@@ -26,7 +26,7 @@ def plot_tm_decomposition_grid(
     line_width: float = 0.8,
 ) -> None:
     """
-    Saves horizontal stacked-bar panels for the normalized TM* decomposition.
+    Saves horizontal stacked-bar panels for the normalized CE*_max decomposition.
 
     Each dataset is rendered as a panel. Rows are grouped by model family, with
     one row per variant. Bars show `length_share + cov_share = 1`: the
@@ -34,7 +34,7 @@ def plot_tm_decomposition_grid(
     the gap to the `x=1` reference and negative covariance extends left.
 
     Args:
-        decompositions_by_cell: Maps `(family, dataset)` -> `{variant: TMDecomposition}`.
+        decompositions_by_cell: Maps `(family, dataset)` -> `{variant: CEStarMaxDecomposition}`.
         families: Model families ordered bottom to top within each panel.
         datasets: Dataset panels ordered left to right.
         variants: Model variants drawn as adjacent rows within each family group.
@@ -121,9 +121,9 @@ def plot_tm_decomposition_grid(
 
         legend_handles = [
             Patch(facecolor=LENGTH_DRIVEN_COLOR, alpha=0.5,
-                  label=r"Length-driven $\;\dfrac{\mathbb{E}[N]\mathbb{E}[r_N]}{\mathrm{TM}^\star}$"),
+                  label=r"Length-driven $\;\dfrac{\mathbb{E}[N]\mathbb{E}[r_N]}{\mathrm{CE}^\star_{\max}}$"),
             Patch(facecolor=COVARIANCE_COLOR,
-                  label=r"(Length, entropy rate) coupling $\;\dfrac{\mathrm{Cov}(N, r_N)}{\mathrm{TM}^\star}$"),
+                  label=r"(Length, entropy rate) coupling $\;\dfrac{\mathrm{Cov}(N, r_N)}{\mathrm{CE}^\star_{\max}}$"),
         ]
         fig.subplots_adjust(left=0.16, right=0.99, top=0.92, bottom=0.18, wspace=0.10)
         fig.legend(

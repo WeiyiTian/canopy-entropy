@@ -90,7 +90,7 @@ def plot_entropy_rate_trajectory(
         fig.subplots_adjust(left=0.06, right=0.99, top=0.94, bottom=0.24, hspace=0.18, wspace=0.22)
         fig.legend(
             handles=[line_handles[key] for key in legend_keys],
-            labels=[f"{family} {variant}" for family, variant in legend_keys],
+            labels=[f"{family.removesuffix('b')}B {variant}" for family, variant in legend_keys],
             loc="lower center",
             bbox_to_anchor=(0.5, -0.03),
             ncol=len(families),

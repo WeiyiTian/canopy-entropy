@@ -10,7 +10,7 @@ bar_height: 0.6
 line_width: 0.8
 
 output:
-  path: ${paths.results_root}/plots/tm_decomposition_grid.pdf
+  path: ${paths.results_root}/plots/ce_star_decomposition.pdf
 
 hydra:
   job:

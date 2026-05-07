@@ -1,0 +1,22 @@
+defaults:
+  - paths: default
+  - matrix: default
+  - _self_
+
+metric: entropy_rate
+prompt_stats_file: prompt_rollout_stats.pt
+label_fontsize: 14.0
+line_width: 1.6
+n_eval_points: 400
+
+output:
+  path: ${paths.results_root}/plots/variance_distribution_${metric}.pdf
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

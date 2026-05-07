@@ -104,7 +104,7 @@ def plot_sequence_length_kde(
         fig.supylabel(r"Density ($\times 10^{-3}$)", x=0.01, y=0.60)
         fig.legend(
             handles=[line_handles[key] for key in legend_keys],
-            labels=[f"{family} {variant}" for family, variant in legend_keys],
+            labels=[f"{family.removesuffix('b')}B {variant}" for family, variant in legend_keys],
             loc="lower center",
             bbox_to_anchor=(0.5, -0.04),
             ncol=len(families),

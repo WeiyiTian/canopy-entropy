@@ -8,7 +8,8 @@ from .sequence_length_hist import (
     plot_sequence_length_histogram,
 )
 from .sequence_length_kde import plot_sequence_length_kde
-from .tm_decomposition_bars import plot_tm_decomposition_grid
+from .ce_star_decomposition_bars import plot_ce_star_decomposition
+from .variance_distribution import plot_variance_distribution
 
 __all__ = [
     "plot_entropy_rate_trajectory",
@@ -20,5 +21,7 @@ __all__ = [
     "plot_sequence_length_histogram",
     "plot_sequence_length_kde",
 
-    "plot_tm_decomposition_grid",
+    "plot_ce_star_decomposition",
+
+    "plot_variance_distribution",
 ]

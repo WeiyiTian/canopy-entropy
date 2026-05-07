@@ -19,7 +19,7 @@ MODEL_VARIANTS = {
 
 GENERATION_SPACE_METRIC_KEYS = (
     "gen_ppl",
-    "tm_star_max",
+    "ce_star_max",
     "branching_factor",
     "entropy_rate_vs_length",
     "truncation_rate",

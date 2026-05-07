@@ -1,6 +1,5 @@
 __pycache__/
 
-data/
 notes/
 pdf/
 notebooks/
@@ -11,3 +10,4 @@ logs
 .claude
 
 results/
+aggregate/
