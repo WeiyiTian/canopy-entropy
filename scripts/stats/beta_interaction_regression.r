@@ -44,6 +44,7 @@ fit_beta_improved <- glmmTMB(
   
   # improved dispersion structure
   dispformula = ~
+    R_sc +
     model_variant * task +
     ns(invN_sc, df = 3) +
     model_name,
@@ -66,13 +67,4 @@ sim_beta2 <- simulateResiduals(
 
 plot(sim_beta2)
 
-testUniformity(sim_beta2)
-
-> # Statistical tests
-> testUniformity(sim_beta2)
-
-	Asymptotic one-sample Kolmogorov-Smirnov test
-
-data:  simulationOutput$scaledResiduals
-D = 0.013833, p-value = 0.748
-alternative hypothesis: two-sided
+print(testUniformity(sim_beta2))

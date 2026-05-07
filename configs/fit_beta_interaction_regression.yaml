@@ -1,0 +1,21 @@
+defaults:
+  - paths: default
+  - matrix: default
+  - _self_
+
+prompt_stats_file: prompt_rollout_stats.pt
+
+r_script: scripts/stats/beta_interaction_regression.r
+
+output:
+  panel_csv: ${paths.results_root}/stats/panel.csv
+  r_log: ${paths.results_root}/stats/beta_interaction_regression.log
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

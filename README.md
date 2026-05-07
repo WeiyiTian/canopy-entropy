@@ -5,7 +5,7 @@ Code and data for the NeurIPS 2026 submission *"Fine-Tuning Improves Information
 ## Repository layout
 
 ```
-src/                 Library code
+src/
   generation_space/  Calculate per-prompt stats and pool across prompts
   metrics/           Tree based measure and semantic diversity
   stats/             Bootstrap and regression utilities
@@ -18,7 +18,6 @@ scripts/
   plotting/          Plot figures
 configs/             Hydra configs
 data/                Prompt files (coding, completion, math, stories)
-results/             Generated tables and figures (created by `reproduce.sh`)
 reproduce.sh         Reproduction entry point
 ```
 
