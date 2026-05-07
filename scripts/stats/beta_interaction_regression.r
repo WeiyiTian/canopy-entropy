@@ -44,7 +44,7 @@ fit_beta_improved <- glmmTMB(
   
   # improved dispersion structure
   dispformula = ~
-    R_sc +
+    R_sc * model_variant +
     model_variant * task +
     ns(invN_sc, df = 3) +
     model_name,
