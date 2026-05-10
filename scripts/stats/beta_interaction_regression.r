@@ -62,7 +62,7 @@ summary(fit_beta_improved)
 
 sim_beta2 <- simulateResiduals(
   fit_beta_improved,
-  n = 1000
+  n = 5000
 )
 
 plot(sim_beta2)

@@ -1,7 +1,5 @@
 # Fine-Tuning Improves Information Conveyance in Language Models
 
-Code and data for the NeurIPS 2026 submission *"Fine-Tuning Improves Information Conveyance in Language Models."* 
-
 ## Repository layout
 
 ```
