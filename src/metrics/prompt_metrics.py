@@ -13,6 +13,7 @@ from .semantic_metrics.cosine_similarity import (
     calculate_bucketed_semantic_diversity,
     calculate_rollout_semantic_diversity,
 )
+from .semantic_metrics.vendi import calculate_vendi_entropy
 
 
 @dataclass(slots=True)
@@ -38,6 +39,10 @@ class PromptMetrics:
         bucketed_semantic_diversity: Mapping from each length-bucket name to `BucketStats`
             computed over the bucket's members. Buckets partition the M rollouts by
             sequence length.
+        vendi_entropy: `H = -sum_i lambda_i * log(lambda_i)`, where `lambda_i` are the 
+            eigenvalues of the normalized cosine kernel matrix `K / M`. `exp(vendi_entropy)`
+            is the Vendi Score, the effective number of distinct responses among the M
+            rollouts.
     """
 
     ce_star_max: torch.Tensor
@@ -49,6 +54,7 @@ class PromptMetrics:
     semantic_diversity: torch.Tensor
     semantic_diversity_vs_length: Correlation
     bucketed_semantic_diversity: dict[str, BucketStats]
+    vendi_entropy: torch.Tensor
 
     def to_cpu(self) -> PromptMetrics:
         return PromptMetrics(
@@ -64,6 +70,7 @@ class PromptMetrics:
                 bucket_name: bucket_stats.to_cpu()
                 for bucket_name, bucket_stats in self.bucketed_semantic_diversity.items()
             },
+            vendi_entropy=self.vendi_entropy.cpu(),
         )
 
 
@@ -89,8 +96,8 @@ def calculate_prompt_metrics(
     Returns:
         `PromptMetrics`: Generation space metrics, including ce_star_max, gen_ppl,
         branching_factor, entropy_rate_vs_length co-movement, truncation_rate,
-        semantic_diversity, semantic_diversity_vs_length co-movement, and
-        bucketed_semantic_diversity.
+        semantic_diversity, semantic_diversity_vs_length co-movement,
+        bucketed_semantic_diversity, and vendi_entropy.
     """
     (
         ce_star_max,
@@ -119,6 +126,7 @@ def calculate_prompt_metrics(
             )
             for bucket_name in LENGTH_BUCKET_NAMES
         }
+        vendi_entropy = nan
     else:
         # [M], i-th entry is d^(i) = 1 - (1/(M-1)) * sum_{j!=i} <e^(i), e^(j)>
         rollout_semantic_diversity = calculate_rollout_semantic_diversity(normalized_embeddings)
@@ -130,6 +138,7 @@ def calculate_prompt_metrics(
             normalized_embeddings=normalized_embeddings,
             sequence_lengths=sequence_lengths,
         )
+        vendi_entropy = calculate_vendi_entropy(normalized_embeddings)
 
     return PromptMetrics(
         ce_star_max=ce_star_max,
@@ -141,6 +150,7 @@ def calculate_prompt_metrics(
         semantic_diversity=semantic_diversity,
         semantic_diversity_vs_length=semantic_diversity_vs_length,
         bucketed_semantic_diversity=bucketed_semantic_diversity,
+        vendi_entropy=vendi_entropy,
     )
 
 

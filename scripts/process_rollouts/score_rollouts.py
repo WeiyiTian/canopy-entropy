@@ -40,10 +40,11 @@ def main(cfg: DictConfig) -> None:
     metadata = GenerationMetadata.load(metadata_path)
     verify_prompt_shards_complete(run_dir, ROLLOUT_SHARDS_ARTIFACT, metadata.num_prompts)
 
-    reward_dir = build_prompt_shard_dir(run_dir, REWARD_SHARDS_ARTIFACT)
+    reward_artifact = f"{REWARD_SHARDS_ARTIFACT}/{cfg.reward.name}"
+    reward_dir = build_prompt_shard_dir(run_dir, reward_artifact)
     if not cfg.resume:
-        reset_prompt_shards(run_dir, REWARD_SHARDS_ARTIFACT)
-    existing_shards = count_prompt_shards(run_dir, REWARD_SHARDS_ARTIFACT)
+        reset_prompt_shards(run_dir, reward_artifact)
+    existing_shards = count_prompt_shards(run_dir, reward_artifact)
     if existing_shards >= metadata.num_prompts:
         print(f"Rewards already complete: {existing_shards}/{metadata.num_prompts} shards at {reward_dir}")
         return
@@ -68,7 +69,7 @@ def main(cfg: DictConfig) -> None:
                 build_prompt_shard_path(run_dir, ROLLOUT_SHARDS_ARTIFACT, prompt_index)
             )
             reward_scores = reward_model.score_batch(prompt, generated_texts).to("cpu", dtype=torch.float32)
-            prompt_output_path = build_prompt_shard_path(run_dir, REWARD_SHARDS_ARTIFACT, prompt_index)
+            prompt_output_path = build_prompt_shard_path(run_dir, reward_artifact, prompt_index)
             save_file({"rewards": reward_scores}, str(prompt_output_path))
             progress.update(1)
 

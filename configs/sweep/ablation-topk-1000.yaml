@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - override /inference: a100
+
+run_name: topk-1000
+sweep_name: ablation-topk-1000
+
+wandb:
+  run_name: ${run_name}
+
+sampling:
+  top_k: 1000
+  logprobs: 1000
+
+inference:
+  max_logprobs: 1000
+
+hydra:
+  mode: MULTIRUN
+  launcher:
+    mem_gb: 200
+  sweeper:
+    params:
+      model: qwen3-8b-base,qwen3-8b-instruct,llama-3.1-8b-base,llama-3.1-8b-instruct,gemma-3-12b-base,gemma-3-12b-instruct
+      dataset: coding,completion,math,stories

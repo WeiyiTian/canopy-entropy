@@ -67,7 +67,7 @@ def plot_ce_star_decomposition(
     with plt.rc_context(rc_params):
         fig, axes = plt.subplots(
             1, len(datasets),
-            figsize=(1.5 * len(datasets) + 0.8, 0.32 * n_total_rows + 1.4),
+            figsize=(1.5 * len(datasets) + 3.5, 0.35 * n_total_rows + 1.4),
             squeeze=False,
             sharex=True,
             sharey=True,
@@ -77,13 +77,13 @@ def plot_ce_star_decomposition(
             yticks: list[float] = []
             ytick_labels: list[str] = []
             for fam_idx, family in enumerate(families):
-                family_display = re.match(r"[A-Za-z]+", family).group()
+                # family_display = re.match(r"[A-Za-z]+", family).group()
                 for var_idx, variant in enumerate(variants):
                     y_pos = fam_idx * family_spacing + var_idx
                     if var_idx > 0:
                         ax.axhspan(y_pos - 0.5, y_pos + 0.5, facecolor=BAND_COLOR, zorder=0)
                     yticks.append(y_pos)
-                    ytick_labels.append(f"{family_display}-{variant}")
+                    ytick_labels.append(f"{family}-{variant}")
 
                     decomp = decompositions_by_cell[(family, dataset)][variant]
                     if decomp is None:

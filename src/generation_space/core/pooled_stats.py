@@ -101,6 +101,12 @@ def _pool_per_prompt_metrics(
     semantic_diversity_bucketed_mean = pool_bucketed_semantic_diversity(
         [m.bucketed_semantic_diversity for m in per_prompt_metrics] # list of P dicts
     ) # dict of {bucket_name: scalar mean over P prompts}
+
+    mean_vendi_entropy = torch.nanmean(
+        torch.stack([m.vendi_entropy for m in per_prompt_metrics]) # [P]
+    )
+    vendi_score = torch.exp(mean_vendi_entropy)
+    
     truncation_rate = torch.nanmean(
         torch.stack([m.truncation_rate for m in per_prompt_metrics]) # [P]
     )
@@ -114,4 +120,5 @@ def _pool_per_prompt_metrics(
         "semantic_diversity_vs_length": semantic_diversity_vs_length,
         "semantic_diversity": semantic_diversity,
         "semantic_diversity_bucketed_mean": semantic_diversity_bucketed_mean,
+        "vendi_score": vendi_score,
     }

@@ -24,29 +24,21 @@ df$invN_sc <- as.numeric(scale(1 / df$N_bar))
 eps <- 1e-6
 df$D_beta <- pmin(pmax(df$D, eps), 1 - eps)
 
-# ============================================================
-# Improved Beta GLMM
-# ============================================================
+# new
 
-fit_beta_improved <- glmmTMB(
+fit_beta_disp_R_interaction <- glmmTMB(
   
   D_beta ~
-    
-    # mean structure
     R_sc * model_variant +
-    
     ns(invN_sc, df = 4) * model_variant +
-    
     task +
-    
     (1 | prompt_uid) +
     (1 | model_name),
   
-  # improved dispersion structure
   dispformula = ~
-    R_sc * model_variant +
     model_variant * task +
     ns(invN_sc, df = 3) +
+    R_sc * model_variant +
     model_name,
   
   family = beta_family(link = "logit"),
@@ -54,17 +46,15 @@ fit_beta_improved <- glmmTMB(
   data = df
 )
 
-summary(fit_beta_improved)
+summary(fit_beta_disp_R_interaction)
 
-# ============================================================
-# Diagnostics
-# ============================================================
-
-sim_beta2 <- simulateResiduals(
-  fit_beta_improved,
-  n = 5000
+sim_beta_R_int <- simulateResiduals(
+  fit_beta_disp_R_interaction,
+  n = 1000
 )
 
-plot(sim_beta2)
+plot(sim_beta_R_int)
 
-print(testUniformity(sim_beta2))
+testUniformity(sim_beta_R_int)
+testDispersion(sim_beta_R_int)
+testOutliers(sim_beta_R_int)

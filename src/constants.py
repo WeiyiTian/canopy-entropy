@@ -26,6 +26,7 @@ GENERATION_SPACE_METRIC_KEYS = (
     "semantic_diversity_vs_length",
     "semantic_diversity",
     "semantic_diversity_bucketed_mean",
+    "vendi_score",
 )
 
 LENGTH_BUCKET_NAMES = ("short", "medium", "long")

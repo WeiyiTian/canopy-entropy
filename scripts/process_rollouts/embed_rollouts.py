@@ -40,10 +40,11 @@ def main(cfg: DictConfig) -> None:
     metadata = GenerationMetadata.load(metadata_path)
     verify_prompt_shards_complete(run_dir, ROLLOUT_SHARDS_ARTIFACT, metadata.num_prompts)
 
-    embedding_dir = build_prompt_shard_dir(run_dir, EMBEDDING_SHARDS_ARTIFACT)
+    embedding_artifact = f"{EMBEDDING_SHARDS_ARTIFACT}/{cfg.embedding.name}"
+    embedding_dir = build_prompt_shard_dir(run_dir, embedding_artifact)
     if not cfg.resume:
-        reset_prompt_shards(run_dir, EMBEDDING_SHARDS_ARTIFACT)
-    existing_shards = count_prompt_shards(run_dir, EMBEDDING_SHARDS_ARTIFACT)
+        reset_prompt_shards(run_dir, embedding_artifact)
+    existing_shards = count_prompt_shards(run_dir, embedding_artifact)
     if existing_shards >= metadata.num_prompts:
         print(f"Embeddings already complete: {existing_shards}/{metadata.num_prompts} shards at {embedding_dir}")
         return
@@ -64,7 +65,7 @@ def main(cfg: DictConfig) -> None:
         dynamic_ncols=True,
     ) as progress:
         for prompt_index in range(existing_shards, metadata.num_prompts):
-            prompt_output_path = build_prompt_shard_path(run_dir, EMBEDDING_SHARDS_ARTIFACT, prompt_index)
+            prompt_output_path = build_prompt_shard_path(run_dir, embedding_artifact, prompt_index)
             _, generated_texts = PromptRollouts.load_texts(
                 build_prompt_shard_path(run_dir, ROLLOUT_SHARDS_ARTIFACT, prompt_index)
             )

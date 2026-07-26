@@ -8,6 +8,7 @@ logs
 .env
 .codex
 .claude
+.vscode
 
 results/
 aggregate/

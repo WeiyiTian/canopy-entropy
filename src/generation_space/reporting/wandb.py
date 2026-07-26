@@ -31,7 +31,7 @@ def resolve_run_name(
         of `{model_name}_{model_variant}_{prompt_file_stem}`.
     """
     if wandb_run_name:
-        return wandb_run_name
+        return f"{wandb_run_name}_{model_name}_{model_variant}_{Path(file_name).stem}"
     return f"{model_name}_{model_variant}_{Path(file_name).stem}"
 
 

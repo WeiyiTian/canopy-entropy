@@ -65,6 +65,12 @@ def main(cfg: DictConfig) -> None:
             print(f"Rollouts already complete: {start_index}/{len(prompts)} shards at {run_dir}")
             return
     else:
+        discarded_shards = count_prompt_shards(run_dir, ROLLOUT_SHARDS_ARTIFACT)
+        if discarded_shards > 0 and not cfg.force:
+            raise ValueError(
+                f"Refusing to delete {discarded_shards} rollout shards at {run_dir}. "
+                f"Pass force=true."
+            )
         reset_prompt_shards(run_dir, ROLLOUT_SHARDS_ARTIFACT)
         requested_metadata.save(build_rollout_metadata_path(run_dir))
         start_index = 0

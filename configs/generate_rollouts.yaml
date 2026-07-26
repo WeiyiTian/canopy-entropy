@@ -10,7 +10,11 @@ defaults:
 
 run_name: default
 resume: true
+force: false
 sweep_name: default
+
+wandb:
+  run_name: ${run_name}
 
 hydra:
   job:

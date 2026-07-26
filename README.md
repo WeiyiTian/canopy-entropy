@@ -94,7 +94,7 @@ python -m scripts.generate_rollouts.generate_rollouts +sweep=debug
 Force a sweep to start from scratch instead of resuming:
 
 ```bash
-python -m scripts.generate_rollouts.generate_rollouts +sweep=all-families-matrix resume=false
+python -m scripts.generate_rollouts.generate_rollouts +sweep=all-families-matrix resume=false force=true
 ```
 
 Tail logs of a running sweep:

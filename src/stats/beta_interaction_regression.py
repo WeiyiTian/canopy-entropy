@@ -36,7 +36,8 @@ class BetaInteractionRegressionResult:
         - `D` is clipped to `[1e-6, 1 - 1e-6]` before fitting so the beta
           likelihood is defined at the boundaries.
         - The beta precision uses its own log-link submodel:
-          `model_variant * task + ns(invN_sc, df=3) + model_name`.
+          `model_variant * task + ns(invN_sc, df=3) + R_sc * model_variant
+          + model_name`.
         - Length enters the mean through the spline term, so there is no single
           `gamma` coefficient as in the linear mixed-effects regressions.
     """
@@ -81,7 +82,8 @@ def fit_beta_interaction_regression(panel: pd.DataFrame) -> BetaInteractionRegre
         fit <- glmmTMB(
             D_beta ~ R_sc * model_variant + ns(invN_sc, df = 4) * model_variant
                 + task + (1 | prompt_uid) + (1 | model_name),
-            dispformula = ~ model_variant * task + ns(invN_sc, df = 3) + model_name,
+            dispformula = ~ model_variant * task + ns(invN_sc, df = 3)
+                + R_sc * model_variant + model_name,
             family = beta_family(link = "logit"),
             data = df
         )

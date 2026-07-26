@@ -52,8 +52,10 @@ def main(cfg: DictConfig) -> None:
     metadata = GenerationMetadata.load(metadata_path)
     verify_prompt_shards_complete(run_dir, ROLLOUT_SHARDS_ARTIFACT, metadata.num_prompts)
 
-    num_rewards = count_prompt_shards(run_dir, REWARD_SHARDS_ARTIFACT)
-    num_embeddings = count_prompt_shards(run_dir, EMBEDDING_SHARDS_ARTIFACT)
+    reward_artifact = f"{REWARD_SHARDS_ARTIFACT}/{cfg.reward.name}"
+    embedding_artifact = f"{EMBEDDING_SHARDS_ARTIFACT}/{cfg.embedding.name}"
+    num_rewards = count_prompt_shards(run_dir, reward_artifact)
+    num_embeddings = count_prompt_shards(run_dir, embedding_artifact)
     has_rewards = cfg.use_reward_filter and num_rewards >= metadata.num_prompts
     has_embeddings = num_embeddings >= metadata.num_prompts
     if not cfg.use_reward_filter:
@@ -109,7 +111,7 @@ def main(cfg: DictConfig) -> None:
 
         if has_rewards:
             reward_scores = load_prompt_shard_tensor(
-                run_dir, REWARD_SHARDS_ARTIFACT, prompt_index, "rewards", device
+                run_dir, reward_artifact, prompt_index, "rewards", device
             )
             keep_mask = build_reward_filter_mask(reward_scores, cfg.keep_fraction)
         else:
@@ -118,7 +120,7 @@ def main(cfg: DictConfig) -> None:
 
         normalized_embeddings = (
             load_prompt_shard_tensor(
-                run_dir, EMBEDDING_SHARDS_ARTIFACT, prompt_index, "embeddings", device
+                run_dir, embedding_artifact, prompt_index, "embeddings", device
             )
             if has_embeddings
             else None

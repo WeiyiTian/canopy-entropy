@@ -3,10 +3,13 @@ defaults:
   - inference: cpu
   - model: qwen3-8b-instruct
   - dataset: coding
+  - embedding: modernbert
+  - reward: skywork
   - wandb: online
   - _self_
 
 run_name: default
+sweep_name: default
 prompt_stats_file: prompt_rollout_stats.pt
 pooled_metrics_file: pooled_metrics.json
 keep_fraction: 0.7
@@ -15,8 +18,12 @@ use_reward_filter: false
 hydra:
   job:
     chdir: false
+    config:
+      override_dirname:
+        exclude_keys:
+          - sweep
   run:
     dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/single/${now:%Y-%m-%d}_${now:%H-%M-%S}
   sweep:
-    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${now:%Y-%m-%d}_${now:%H-%M-%S}
-    subdir: ${hydra.job.num}
+    dir: ${paths.outputs_root}/hydra_logs/${hydra.job.config_name}/multirun/${sweep_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}_${hydra.job.override_dirname}
