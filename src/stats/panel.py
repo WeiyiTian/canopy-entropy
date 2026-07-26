@@ -22,6 +22,9 @@ def build_panel(prompt_stats_paths: list[Path]) -> pd.DataFrame:
         - model_name: model family.
         - model_variant: model variant.
         - D: semantic diversity `D_{tmp}` for this prompt.
+        - log_VS: Vendi entropy `H_{tmp}` for this prompt.
+        - VS: Vendi Score `exp(H_{tmp})`, the effective number of distinct
+          responses among the M rollouts, bounded in `[1, M]`.
         - R_bar: mean per-rollout entropy rate `R_bar_{tmp}` for this prompt.
         - N_bar: mean rollout length `(1/M) * sum_i N^(i)` for this prompt.
         - M: number of raw rollouts for this prompt.
@@ -54,6 +57,8 @@ def _load_panel_block(prompt_stats_path: Path) -> pd.DataFrame:
         - model_name: model family.
         - model_variant: model variant.
         - D: semantic diversity `D_{tmp}` for this prompt.
+        - log_VS: Vendi entropy `H_{tmp}` for this prompt.
+        - VS: Vendi Score `exp(H_{tmp})` for this prompt.
         - R_bar: mean per-rollout entropy rate `R_bar_{tmp}` for this prompt.
         - N_bar: mean rollout length `(1/M) * sum_i N^(i)` for this prompt.
         - M: number of raw rollouts for this prompt.
@@ -68,6 +73,8 @@ def _load_panel_block(prompt_stats_path: Path) -> pd.DataFrame:
             "model_name": metadata.model_name,
             "model_variant": metadata.model_variant,
             "D": _to_float(stats.raw_metrics.semantic_diversity),
+            "log_VS": _to_float(stats.raw_metrics.vendi_entropy),
+            "VS": _to_float(stats.raw_metrics.vendi_entropy.exp()),
             "R_bar": _to_float(stats.raw_metrics.entropy_rate),
             "N_bar": _to_float(stats.raw_sequence_lengths.to(torch.float32).mean()),
             "M": int(stats.raw_sequence_lengths.numel()),

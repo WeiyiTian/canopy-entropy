@@ -1,0 +1,15 @@
+defaults:
+  - override /inference: a100
+
+run_name: fewshot
+sweep_name: fewshot-matrix
+
+wandb:
+  run_name: ${run_name}
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      model: qwen3-8b-base,qwen3-8b-instruct,llama-3.1-8b-base,llama-3.1-8b-instruct,gemma-3-12b-base,gemma-3-12b-instruct
+      dataset: coding-fewshot,completion-fewshot,math-fewshot,stories-fewshot

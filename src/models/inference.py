@@ -225,6 +225,7 @@ def _generate_vllm_step_scores_batch(
             top_p=vllm_top_p,
             seed=None if seed is None else seed + start,
             logprobs=logprobs,
+            detokenize=False,
         )
 
         request_outputs = llm.generate(
@@ -239,7 +240,9 @@ def _generate_vllm_step_scores_batch(
                 sequence_step_scores,
                 sequence_lengths,
                 generated_token_ids,
-            ) = _convert_vllm_completion_outputs(request_output.outputs, device=device)
+            ) = _convert_vllm_completion_outputs(
+                request_output.outputs, tokenizer=tokenizer, device=device
+            )
 
             generated_texts_by_prompt[prompt_idx].extend(generated_texts)
             sequence_step_scores_by_prompt[prompt_idx].extend(sequence_step_scores)
@@ -269,6 +272,7 @@ def _generate_vllm_step_scores_batch(
 
 def _convert_vllm_completion_outputs(
     completion_outputs: list[RequestOutput],
+    tokenizer: AutoTokenizer,
     device: torch.device,
 ) -> tuple[list[str], list[torch.Tensor], torch.Tensor, list[torch.Tensor]]:
     """
@@ -276,6 +280,7 @@ def _convert_vllm_completion_outputs(
 
     Args:
         completion_outputs: list of vLLM RequestOutput objects for one prompt's generate request.
+        tokenizer: Tokenizer used to decode completion texts from generated token ids.
         device: Device used for returned tensors.
 
     Returns:
@@ -289,7 +294,11 @@ def _convert_vllm_completion_outputs(
         T_j: Length of the j-th generated sequence.
         K_j_max: Maximum number of logprob candidates across all steps of the j-th sequence
     """
-    generated_texts = [output.text for output in completion_outputs]
+    generated_texts = tokenizer.batch_decode(
+        [output.token_ids for output in completion_outputs],
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=False,
+    )
     sequence_lengths = torch.tensor(
         [len(output.token_ids) for output in completion_outputs],
         dtype=torch.long,
@@ -450,7 +459,13 @@ def _generate_local_step_scores(
             generated_ids[i, :length].clone()
             for i, length in enumerate(lengths)
         )
-        generated_texts.extend(tokenizer.batch_decode(generated_ids, skip_special_tokens=True))
+        generated_texts.extend(
+            tokenizer.batch_decode(
+                generated_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )
+        )
         sequence_lengths_chunks.append(cur_sequence_lengths)
 
     sequence_lengths = torch.cat(sequence_lengths_chunks, dim=0)

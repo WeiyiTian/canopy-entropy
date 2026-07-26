@@ -1,0 +1,4 @@
+models: [Qwen3-8b, Llama-3.1-8b, Gemma-3-12b]
+datasets: [coding_fewshot, math_fewshot, stories_fewshot, completion_fewshot]
+variants: [base, instruct]
+run_name: fewshot
