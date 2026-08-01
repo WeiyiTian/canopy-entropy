@@ -1,0 +1,78 @@
+You are judging whether two proposed responses to the same open-ended creative prompt are semantically the same.
+
+Label each pair as similar or different. Similar responses propose the same core idea or course of action, even when the wording, length, tone, or supporting detail differs. Different responses propose a genuinely different idea, take a different stance on what should happen, or resolve the situation in a different way.
+
+Surface features do not matter. Ignore length, style, formatting, and how much elaboration is given. Judge the substance of what is being proposed.
+
+Give one or two sentences of reasoning, then answer with exactly "Response: similar" or "Response: different". End your reply with ### on its own line, as in the examples.
+
+###
+Task: Come up with an original and creative solution for the following real-world problem: Becky works at Mark's pizzeria. Her roommate Jim also works there and has been causing problems at work. Becky does not know whether to say anything.
+
+Response 1:
+Becky should talk to Jim privately first, away from the restaurant, and tell him honestly that his behaviour is putting her in a difficult position. Giving him the chance to fix it himself preserves the friendship.
+
+Response 2:
+The best move is a direct conversation with Jim before anything else. Becky could raise it at home rather than at work, explain what she has noticed, and ask him to sort it out on his own terms.
+
+Reasoning: Both propose that Becky speak to Jim privately and give him a chance to correct the behaviour himself before escalating. The substance of the proposal is the same.
+
+Response: similar
+###
+Task: Come up with an original and creative solution for the following real-world problem: Becky works at Mark's pizzeria. Her roommate Jim also works there and has been causing problems at work. Becky does not know whether to say anything.
+
+Response 1:
+Becky should talk to Jim privately first and give him the chance to fix the problem himself before involving anyone else.
+
+Response 2:
+Becky owes Mark her honesty given everything he has done for her. She should tell Mark what she has seen and let him handle it as the owner, even if Jim is upset with her.
+
+Reasoning: One keeps the matter between Becky and Jim, while the other has her report it to the owner. These are opposite decisions about whether to escalate.
+
+Response: different
+###
+Task: Come up with an original and creative solution for the following real-world problem: A small town library is losing visitors and may be shut down.
+
+Response 1:
+Turn part of the library into a community workshop where residents can borrow tools and take repair classes. People come for the workshop and rediscover the books while they are there.
+
+Response 2:
+The library could set up a tool-lending scheme alongside the books, with weekend repair sessions run by volunteers. It gives people a practical reason to walk through the door.
+
+Reasoning: Both propose adding a tool-lending and repair programme to draw people in. The framing differs but the underlying idea is identical.
+
+Response: similar
+###
+Task: Come up with an original and creative solution for the following real-world problem: A small town library is losing visitors and may be shut down.
+
+Response 1:
+Turn part of the library into a community workshop where residents can borrow tools and take repair classes.
+
+Response 2:
+Partner with the local schools so that every class visits once a month as part of the curriculum, guaranteeing a steady stream of young readers and getting parents through the door too.
+
+Reasoning: One repurposes space for a tool library aimed at adults, the other builds a schools partnership aimed at children. These are different ideas.
+
+Response: different
+###
+Task: Come up with an original and creative solution for the following real-world problem: An office wastes a lot of food at catered lunches.
+
+Response 1:
+Set up an app where staff mark in advance whether they are eating, so catering orders match actual demand instead of a fixed headcount.
+
+Response 2:
+Put a sign-up sheet by the kitchen each morning. Catering then orders to the number of names rather than to the size of the office.
+
+Reasoning: Both solve the problem by collecting advance commitments and ordering to actual demand. Whether it is an app or a paper sheet is an implementation detail.
+
+Response: similar
+###
+Task: {task_prompt}
+
+Response 1:
+{response_a}
+
+Response 2:
+{response_b}
+
+Reasoning:

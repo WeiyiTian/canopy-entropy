@@ -13,7 +13,7 @@ from src.generation_space.core import GenerationMetadata, PromptRollouts
 from src.generation_space.io import (
     build_prompt_shard_dir,
     build_prompt_shard_path,
-    build_rollout_metadata_path,
+    build_metadata_path,
     build_run_dir,
     count_prompt_shards,
     reset_prompt_shards,
@@ -32,7 +32,7 @@ def main(cfg: DictConfig) -> None:
         cfg.model.variant,
         cfg.run_name,
     )
-    metadata_path = build_rollout_metadata_path(run_dir)
+    metadata_path = build_metadata_path(run_dir)
     if not metadata_path.exists():
         raise FileNotFoundError(
             f"Rollout metadata not found at {metadata_path}. Run generate_rollouts.py first."
@@ -40,7 +40,7 @@ def main(cfg: DictConfig) -> None:
     metadata = GenerationMetadata.load(metadata_path)
     verify_prompt_shards_complete(run_dir, ROLLOUT_SHARDS_ARTIFACT, metadata.num_prompts)
 
-    embedding_artifact = f"{EMBEDDING_SHARDS_ARTIFACT}/{cfg.embedding.name}"
+    embedding_artifact = f"{EMBEDDING_SHARDS_ARTIFACT}/{cfg.embedding.key}"
     embedding_dir = build_prompt_shard_dir(run_dir, embedding_artifact)
     if not cfg.resume:
         reset_prompt_shards(run_dir, embedding_artifact)
@@ -56,7 +56,10 @@ def main(cfg: DictConfig) -> None:
         device=cfg.inference.device,
         model_kwargs={"dtype": torch.bfloat16},
     )
-    print("Finished loading semantic model.")
+
+    semantic_model.max_seq_length = cfg.embedding.max_seq_length
+    encode_prompt = cfg.embedding.prompt or None
+    print(f"Finished loading semantic model. Encoding with prompt={encode_prompt!r}.")
 
     with tqdm(
         total=metadata.num_prompts,
@@ -70,7 +73,8 @@ def main(cfg: DictConfig) -> None:
                 build_prompt_shard_path(run_dir, ROLLOUT_SHARDS_ARTIFACT, prompt_index)
             )
             embeddings = semantic_model.encode(
-                [f"search_document: {text}" for text in generated_texts],
+                generated_texts,
+                prompt=encode_prompt,
                 batch_size=cfg.embedding.batch_size,
                 convert_to_tensor=True,
                 show_progress_bar=False,

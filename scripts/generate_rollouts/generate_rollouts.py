@@ -11,7 +11,7 @@ from src.constants import ROLLOUT_SHARDS_ARTIFACT
 from src.generation_space.core import GenerationMetadata, PromptRollouts
 from src.generation_space.io import (
     build_prompt_shard_path,
-    build_rollout_metadata_path,
+    build_metadata_path,
     build_run_dir,
     count_prompt_shards,
     load_prompts,
@@ -34,7 +34,7 @@ def main(cfg: DictConfig) -> None:
         cfg.model.variant,
         cfg.run_name,
     )
-    is_resume = cfg.resume and build_rollout_metadata_path(run_dir).exists()
+    is_resume = cfg.resume and build_metadata_path(run_dir).exists()
 
     if cfg.sampling.top_k is not None and cfg.sampling.top_k > 0:
         assert cfg.sampling.logprobs >= cfg.sampling.top_k, (
@@ -72,7 +72,7 @@ def main(cfg: DictConfig) -> None:
                 f"Pass force=true."
             )
         reset_prompt_shards(run_dir, ROLLOUT_SHARDS_ARTIFACT)
-        requested_metadata.save(build_rollout_metadata_path(run_dir))
+        requested_metadata.save(build_metadata_path(run_dir))
         start_index = 0
 
     run_name = resolve_run_name(

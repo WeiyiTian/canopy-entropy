@@ -22,7 +22,7 @@ from src.generation_space.core import (
 )
 from src.generation_space.io import (
     build_prompt_shard_path,
-    build_rollout_metadata_path,
+    build_metadata_path,
     build_run_dir,
     count_prompt_shards,
     load_prompt_shard_tensor,
@@ -37,6 +37,8 @@ load_dotenv()
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="compute_gen_space")
 def main(cfg: DictConfig) -> None:
+    torch.set_num_threads(1)
+
     run_dir = build_run_dir(
         cfg.paths.outputs_root,
         cfg.dataset.file_name,
@@ -44,7 +46,7 @@ def main(cfg: DictConfig) -> None:
         cfg.model.variant,
         cfg.run_name,
     )
-    metadata_path = build_rollout_metadata_path(run_dir)
+    metadata_path = build_metadata_path(run_dir)
     if not metadata_path.exists():
         raise FileNotFoundError(
             f"Rollout metadata not found at {metadata_path}. Run generate_rollouts.py first."
@@ -53,7 +55,7 @@ def main(cfg: DictConfig) -> None:
     verify_prompt_shards_complete(run_dir, ROLLOUT_SHARDS_ARTIFACT, metadata.num_prompts)
 
     reward_artifact = f"{REWARD_SHARDS_ARTIFACT}/{cfg.reward.name}"
-    embedding_artifact = f"{EMBEDDING_SHARDS_ARTIFACT}/{cfg.embedding.name}"
+    embedding_artifact = f"{EMBEDDING_SHARDS_ARTIFACT}/{cfg.embedding.key}"
     num_rewards = count_prompt_shards(run_dir, reward_artifact)
     num_embeddings = count_prompt_shards(run_dir, embedding_artifact)
     has_rewards = cfg.use_reward_filter and num_rewards >= metadata.num_prompts

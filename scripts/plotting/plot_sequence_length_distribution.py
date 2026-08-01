@@ -11,7 +11,7 @@ from tqdm import tqdm
 from src.constants import ROLLOUT_SHARDS_ARTIFACT
 from src.generation_space.core import GenerationMetadata
 from src.generation_space.io import (
-    build_rollout_metadata_path,
+    build_metadata_path,
     build_run_dir,
     load_prompt_shard_tensor,
     verify_prompt_shards_complete,
@@ -34,7 +34,7 @@ def load_run_sequence_lengths(
     """
     file_name = f"{dataset}.jsonl"
     run_dir = build_run_dir(outputs_root, file_name, family, variant, run_name)
-    metadata_path = build_rollout_metadata_path(run_dir)
+    metadata_path = build_metadata_path(run_dir)
     if not metadata_path.exists():
         return None
     metadata = GenerationMetadata.load(metadata_path)

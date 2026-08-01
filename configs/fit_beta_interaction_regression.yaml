@@ -3,13 +3,15 @@ defaults:
   - matrix: default
   - _self_
 
+run_name: ${matrix.run_name}
+tag: ${run_name}
 prompt_stats_file: prompt_rollout_stats.pt
 
 r_script: scripts/stats/beta_interaction_regression.r
 
 output:
-  panel_csv: ${paths.results_root}/stats/panel.csv
-  r_log: ${paths.results_root}/stats/beta_interaction_regression.log
+  panel_csv: ${paths.results_root}/stats/${tag}/panel.csv
+  r_log: ${paths.results_root}/stats/${tag}/beta_interaction_regression.log
 
 hydra:
   job:

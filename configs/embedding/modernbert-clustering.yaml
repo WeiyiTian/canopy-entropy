@@ -1,5 +1,5 @@
 name: modernbert-embed-large
-key: ${embedding.name}
-prompt: "search_document: "
+key: modernbert-embed-large-clustering
+prompt: "clustering: "
 max_seq_length: 8192
 batch_size: 32

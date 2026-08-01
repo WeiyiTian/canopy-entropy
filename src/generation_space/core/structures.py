@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
+from typing import Self
 
 import torch
 from safetensors import safe_open
@@ -164,8 +165,39 @@ class PromptRolloutStats:
         )
 
 
+class JsonMetadata:
+    """
+    Base for dataclasses that record a run's settings in a JSON file.
+    Subclasses declare only their fields and inherit `save` and `load`.
+    """
+
+    # declares empty slots so subclasses defined with `slots=True` keep them
+    __slots__ = ()
+
+    def to_dict(self) -> dict[str, object]:
+        """Serializes metadata fields to a flat dict."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> Self:
+        """Reconstructs metadata from a dictionary."""
+        return cls(**{field.name: payload[field.name] for field in fields(cls)})
+
+    def save(self, path: Path) -> None:
+        """Saves metadata as a JSON file."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=4)
+
+    @classmethod
+    def load(cls, path: Path) -> Self:
+        """Loads metadata from a JSON file."""
+        with path.open(encoding="utf-8") as f:
+            return cls.from_dict(json.load(f))
+
+
 @dataclass(slots=True)
-class GenerationMetadata:
+class GenerationMetadata(JsonMetadata):
     """
     Serializable run metadata describing the prompts, model, and sampling settings.
 
@@ -197,23 +229,35 @@ class GenerationMetadata:
     logprobs: int
     enable_thinking: bool
 
-    def to_dict(self) -> dict[str, object]:
-        """Serializes metadata fields to a flat dict."""
-        return asdict(self)
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, object]) -> GenerationMetadata:
-        """Reconstructs metadata from a dictionary."""
-        return cls(**{field.name: payload[field.name] for field in fields(cls)})
+@dataclass(slots=True)
+class JudgeMetadata(JsonMetadata):
+    """
+    Serializable run metadata identifying one pairwise judging configuration.
 
-    def save(self, path: Path) -> None:
-        """Saves metadata as a JSON file."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, indent=4)
+    Changing any field changes the verdicts, so a resume compares the request against
+    the stored copy and aborts on any difference.
+    
+    Attributes:
+        model: Model identifier passed to the judging endpoint.
+        base_url: Endpoint the run was issued against.
+        prompt_file: Path to the few-shot judge prompt used.
+        prompt_hash: Short fingerprint of that prompt's text, computed with SHA-256.
+            Any edit to the file changes it, so the resume check catches prompt changes
+            without storing the whole prompt in every run's metadata.
+        num_rollouts: Rollouts judged per prompt, m. Bounds RSE at `log(m)`.
+        seed: Seed for the per-prompt rollout subsample.
+        temperature: Judge sampling temperature.
+        top_p: Judge nucleus sampling cutoff.
+        max_tokens: Output token cap per judge call.
+    """
 
-    @classmethod
-    def load(cls, path: Path) -> GenerationMetadata:
-        """Loads metadata from a JSON file."""
-        with path.open(encoding="utf-8") as f:
-            return cls.from_dict(json.load(f))
+    model: str
+    base_url: str
+    prompt_file: str
+    prompt_hash: str
+    num_rollouts: int
+    seed: int
+    temperature: float
+    top_p: float
+    max_tokens: int

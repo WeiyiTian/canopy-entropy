@@ -1,0 +1,21 @@
+# judge label, used as the shard directory under judgment_shards/
+name: gpt-5.6-luna-m24
+
+model: openai/gpt-5.6-luna
+base_url: https://openrouter.ai/api/v1
+api_key_env: OPENROUTER_API_KEY
+prompts_dir: data/rse_judge_prompts
+
+# cost grows with the square of this, and RSE is bounded by log(m)
+num_rollouts: 24
+seed: 42
+
+# judge only the first N prompts of the run for pilots or all prompts if null
+max_prompts: null
+temperature: 0.1
+top_p: 0.95
+max_tokens: 1536
+max_concurrency: 64
+timeout: 120.0
+max_retries: 5
+max_failure_rate: 0.05

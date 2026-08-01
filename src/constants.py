@@ -34,3 +34,4 @@ LENGTH_BUCKET_NAMES = ("short", "medium", "long")
 ROLLOUT_SHARDS_ARTIFACT = "rollout_shards"
 EMBEDDING_SHARDS_ARTIFACT = "embedding_shards"
 REWARD_SHARDS_ARTIFACT = "reward_shards"
+JUDGMENT_SHARDS_ARTIFACT = "judgment_shards"

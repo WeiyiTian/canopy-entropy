@@ -1,6 +1,4 @@
-defaults:
-  - override /inference: a100
-
+# @package _global_
 run_name: fewshot
 sweep_name: fewshot-matrix
 

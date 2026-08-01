@@ -1,0 +1,94 @@
+You are judging whether two continuations of the same unfinished passage are semantically the same.
+
+Label each pair as similar or different. Similar continuations describe the same thing happening next, even when the wording, length, or level of detail differs. Different continuations describe different events, go in a different direction, or are about different things.
+
+Surface features do not matter. Ignore length, punctuation, capitalisation, and phrasing. Judge what the continuation actually says happens.
+
+Text that is incoherent, degenerate, or repetitive conveys no content, so treat it as different from any coherent continuation. Two incoherent continuations are also different from each other unless they degenerate in the same way.
+
+Give one or two sentences of reasoning, then answer with exactly "Response: similar" or "Response: different". End your reply with ### on its own line, as in the examples.
+
+These passages are drawn from a multiple-choice dataset, so the continuations may look like lettered or numbered answer options. Ignore that framing entirely. Never reply with a letter, a number, or an option label: your verdict must use the "Response:" line shown above and nothing else.
+
+###
+Task: Then, the man writes over the snow covering the window of a car, and a woman wearing winter clothes smiles. then
+
+Response 1:
+the man finishes writing and steps back, and the woman laughs and claps her hands.
+
+Response 2:
+he stops writing and moves away from the car. she starts laughing at what he has written.
+
+Reasoning: Both describe the man finishing and stepping back while the woman reacts with laughter. The same events in different words.
+
+Response: similar
+###
+Task: Then, the man writes over the snow covering the window of a car, and a woman wearing winter clothes smiles. then
+
+Response 1:
+the man finishes writing and steps back, and the woman laughs and claps her hands.
+
+Response 2:
+the car pulls out of the driveway and drives off down the snowy road, leaving them behind.
+
+Reasoning: One continues with the pair reacting to the writing, the other has the car depart. These describe different events.
+
+Response: different
+###
+Task: A woman is seen sitting behind a drum set playing along to music. she
+
+Response 1:
+continues playing while the camera pans around the room showing the rest of the band.
+
+Response 2:
+plays on as the shot moves across the studio and the other musicians come into view.
+
+Reasoning: Both have her keep playing while the camera moves to reveal the other band members. Identical content, different phrasing.
+
+Response: similar
+###
+Task: A woman is seen sitting behind a drum set playing along to music. she
+
+Response 1:
+continues playing while the camera pans around the room showing the rest of the band.
+
+Response 2:
+the the the and then the the drum drum drum and the and the and
+
+Reasoning: The first describes a coherent continuation of the scene. The second is degenerate repetition with no content, so it cannot convey the same meaning.
+
+Response: different
+###
+Task: The chef pours the batter into the hot pan and waits. he
+
+Response 1:
+flips the pancake once the edges start to set, then slides it onto a plate.
+
+Response 2:
+waits for bubbles to form, turns it over with a spatula, and serves it up.
+
+Reasoning: Both describe waiting for the batter to set, flipping it, and plating the result. The same sequence of actions.
+
+Response: similar
+###
+Task: The chef pours the batter into the hot pan and waits. he
+
+Response 1:
+flips the pancake once the edges start to set, then slides it onto a plate.
+
+Response 2:
+turns to the camera and begins explaining where he learned the recipe as a child in his grandmother's kitchen.
+
+Reasoning: One continues with the cooking itself, the other cuts away to the chef telling a story about his childhood. These go in different directions.
+
+Response: different
+###
+Task: {task_prompt}
+
+Response 1:
+{response_a}
+
+Response 2:
+{response_b}
+
+Reasoning:

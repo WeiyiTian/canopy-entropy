@@ -1,22 +1,14 @@
 # @package _global_
-run_name: topk-1000
-sweep_name: ablation-topk-1000
+run_name: default
+sweep_name: ablation-embedding
 
-generate_mem_gb: 200
-
-wandb:
-  run_name: ${run_name}
-
-sampling:
-  top_k: 1000
-  logprobs: 1000
-
-inference:
-  max_logprobs: 1000
+pooled_metrics_file: pooled_metrics__${embedding.key}.json
+prompt_stats_file: prompt_rollout_stats__${embedding.key}.pt
 
 hydra:
   mode: MULTIRUN
   sweeper:
     params:
+      embedding: bge-m3,modernbert-clustering,e5-mistral
       model: qwen3-8b-base,qwen3-8b-instruct,llama-3.1-8b-base,llama-3.1-8b-instruct,gemma-3-12b-base,gemma-3-12b-instruct
       dataset: coding,completion,math,stories

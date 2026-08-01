@@ -1,18 +1,22 @@
 # @package _global_
-run_name: topk-1000
-sweep_name: ablation-topk-1000
+run_name: topk-5000
+sweep_name: ablation-topk-5000
 
-generate_mem_gb: 200
+generate_mem_gb: 400
+generate_timeout_min: 720
 
 wandb:
   run_name: ${run_name}
 
 sampling:
-  top_k: 1000
-  logprobs: 1000
+  top_k: 5000
+  logprobs: 5000
 
 inference:
-  max_logprobs: 1000
+  max_logprobs: 5000
+  prompt_batch_size: 1
+  sample_batch_size: 50
+  gpu_memory_utilization: 0.85
 
 hydra:
   mode: MULTIRUN

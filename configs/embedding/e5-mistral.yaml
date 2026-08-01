@@ -1,0 +1,5 @@
+name: e5-mistral-7b-instruct
+key: ${embedding.name}
+prompt: "Instruct: Retrieve semantically similar text.\nQuery: "
+max_seq_length: 8192
+batch_size: 4

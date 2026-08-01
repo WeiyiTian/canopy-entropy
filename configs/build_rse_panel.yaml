@@ -1,19 +1,15 @@
 defaults:
   - paths: default
   - matrix: default
+  - judge: openrouter
   - _self_
 
 run_name: ${matrix.run_name}
 tag: ${run_name}
 prompt_stats_file: prompt_rollout_stats.pt
 
-bootstrap:
-  n_boot: 2000
-  seed: 42
-  ci_level: 0.95
-
 output:
-  results_path: ${paths.results_root}/stats/base_vs_instruct__${tag}.json
+  panel_csv: ${paths.results_root}/stats/${tag}/rse_panel_${judge.name}.csv
 
 hydra:
   job:

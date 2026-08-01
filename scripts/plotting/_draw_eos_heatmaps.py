@@ -12,7 +12,7 @@ from src.constants import ROLLOUT_SHARDS_ARTIFACT
 from src.generation_space.core import GenerationMetadata, PromptRollouts
 from src.generation_space.io import (
     build_prompt_shard_path,
-    build_rollout_metadata_path,
+    build_metadata_path,
     build_run_dir,
     verify_prompt_shards_complete,
 )
@@ -81,7 +81,7 @@ def _compute_eos_payload(args: argparse.Namespace) -> dict[str, object]:
         args.model_variant,
         args.run_name,
     )
-    metadata = GenerationMetadata.load(build_rollout_metadata_path(run_dir))
+    metadata = GenerationMetadata.load(build_metadata_path(run_dir))
     verify_prompt_shards_complete(run_dir, ROLLOUT_SHARDS_ARTIFACT, metadata.num_prompts)
     prompt_count = metadata.num_prompts
 

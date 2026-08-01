@@ -1,0 +1,81 @@
+You are judging whether two attempted solutions to the same maths problem are semantically the same.
+
+Label each pair as similar or different. Similar solutions reach the same final answer by the same overall strategy, even when the wording, notation, formatting, or level of detail differs. Different solutions either reach a different final answer, or reach the same answer by a genuinely different strategy.
+
+Surface features do not matter. Ignore length, formatting, notation, and phrasing, and judge only the mathematical content. Rearranging the same arithmetic is the same strategy; setting the problem up in a structurally different way is not.
+
+Give one or two sentences of reasoning, then answer with exactly "Response: similar" or "Response: different". End your reply with ### on its own line, as in the examples.
+
+###
+Task: Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?
+
+Response 1:
+In May she sold 48 / 2 = 24 clips. Altogether that is 48 + 24 = 72 clips.
+
+Response 2:
+April: 48 clips.
+May is half of April, so 48 / 2 = 24 clips.
+Total = 48 + 24 = 72.
+The answer is 72.
+
+Reasoning: Both halve the April figure to get May and then add the two months, reaching 72. Only the formatting and verbosity differ.
+
+Response: similar
+###
+Task: A shirt costs $20. It is on sale for 25% off. How much does it cost now?
+
+Response 1:
+The discount is 20 * 0.25 = $5. So the sale price is 20 - 5 = $15.
+
+Response 2:
+Paying 25% off means paying 75% of the original price. So the price is 20 * 0.75 = $15.
+
+Reasoning: Both reach $15, but one computes the discount and subtracts it while the other multiplies by the remaining fraction directly. These are structurally different set-ups.
+
+Response: different
+###
+Task: Tom has 3 boxes with 12 pencils in each. He gives away 8 pencils. How many does he have left?
+
+Response 1:
+He starts with 3 * 12 = 36 pencils. After giving away 8, he has 36 - 8 = 28 pencils.
+
+Response 2:
+3 boxes * 12 pencils = 36 pencils total. He gives away 8, so 36 - 8 = 26 pencils remain.
+
+Reasoning: Both use the same two steps in the same order, but the second makes an arithmetic error and reaches 26 instead of 28. A different final answer makes them different.
+
+Response: different
+###
+Task: A train travels 60 miles in 1.5 hours. What is its average speed in miles per hour?
+
+Response 1:
+Speed = distance / time = 60 / 1.5 = 40 mph.
+
+Response 2:
+To find average speed we divide the total distance travelled by the total time taken. Here the distance is 60 miles and the time is 1.5 hours. Carrying out the division, 60 divided by 1.5 gives 40. So the train's average speed is 40 miles per hour.
+
+Reasoning: Both apply the same speed formula to the same numbers and get 40 mph. One is terse and one is verbose, which is a surface difference only.
+
+Response: similar
+###
+Task: The sum of two numbers is 30 and their difference is 4. What is the larger number?
+
+Response 1:
+Let the numbers be x and y with x > y. Then x + y = 30 and x - y = 4. Adding the equations gives 2x = 34, so x = 17.
+
+Response 2:
+If the numbers were equal they would both be 15. The difference of 4 means one is 2 above and the other 2 below that midpoint, so the larger is 15 + 2 = 17.
+
+Reasoning: Both reach 17, but one sets up and solves a system of equations while the other reasons about the midpoint and half the difference. These are genuinely different approaches.
+
+Response: different
+###
+Task: {task_prompt}
+
+Response 1:
+{response_a}
+
+Response 2:
+{response_b}
+
+Reasoning:

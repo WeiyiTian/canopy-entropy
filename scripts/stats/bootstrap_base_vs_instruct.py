@@ -29,11 +29,11 @@ def main(cfg: DictConfig) -> None:
     for model in cfg.matrix.models:
         for dataset in cfg.matrix.datasets:
             base_path = (
-                build_run_dir(cfg.paths.outputs_root, dataset, model, "base", cfg.matrix.run_name)
+                build_run_dir(cfg.paths.outputs_root, dataset, model, "base", cfg.run_name)
                 / cfg.prompt_stats_file
             )
             instruct_path = (
-                build_run_dir(cfg.paths.outputs_root, dataset, model, "instruct", cfg.matrix.run_name)
+                build_run_dir(cfg.paths.outputs_root, dataset, model, "instruct", cfg.run_name)
                 / cfg.prompt_stats_file
             )
             if not base_path.exists() or not instruct_path.exists():

@@ -16,7 +16,16 @@ df$model_name <- factor(df$model_name)
 df$model_variant <- factor(df$model_variant)
 
 df$model_variant <- relevel(df$model_variant, ref = "base")
-df$task <- relevel(df$task, ref = "completion")
+
+# Matched by prefix so few-shot panels (completion_fewshot, ...) keep the same reference task.
+task_ref <- grep("^completion", levels(df$task), value = TRUE)
+if (length(task_ref) != 1) {
+  stop(sprintf(
+    "expected exactly one task level starting with 'completion', found: %s",
+    paste(levels(df$task), collapse = ", ")
+  ))
+}
+df$task <- relevel(df$task, ref = task_ref)
 
 df$R_sc <- as.numeric(scale(df$R_bar))
 df$invN_sc <- as.numeric(scale(1 / df$N_bar))

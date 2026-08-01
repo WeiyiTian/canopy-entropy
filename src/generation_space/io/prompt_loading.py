@@ -23,3 +23,22 @@ def load_prompts(prompt_file: Path, num_prompts: int) -> list[str]:
             for line in f if line.strip()
         )
         return list(islice(prompts, num_prompts)) if num_prompts > 0 else list(prompts)
+
+
+def load_judge_prompt(prompts_dir: Path, task: str) -> tuple[Path, str]:
+    """
+    Loads the few-shot similarity judge prompt for one task.
+
+    Args:
+        prompts_dir: Directory holding one judge prompt per task.
+        task: Task name, matching a `{task}.txt` file in that directory.
+
+    Returns:
+        (prompt_path, prompt_contents):
+        - prompt_path: Path to the prompt file.
+        - prompt_contents: Contents of the prompt file.
+    """
+    prompt_path = prompts_dir / f"{task}.txt"
+    if not prompt_path.exists():
+        raise FileNotFoundError(f"No judge prompt for task '{task}' at {prompt_path}.")
+    return prompt_path, prompt_path.read_text(encoding="utf-8")

@@ -1,22 +1,14 @@
 defaults:
   - paths: default
-  - inference: a100
-  - launcher: generate
+  - launcher: api
   - model: qwen3-8b-instruct
   - dataset: coding
-  - sampling: default
-  - wandb: online
+  - judge: openrouter
   - _self_
 
 run_name: default
 resume: true
-force: false
 sweep_name: default
-generate_mem_gb: 100
-generate_timeout_min: 360
-
-wandb:
-  run_name: ${run_name}
 
 hydra:
   job:

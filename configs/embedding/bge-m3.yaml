@@ -1,5 +1,5 @@
-name: modernbert-embed-large
+name: bge-m3
 key: ${embedding.name}
-prompt: "search_document: "
+prompt: ""
 max_seq_length: 8192
 batch_size: 32

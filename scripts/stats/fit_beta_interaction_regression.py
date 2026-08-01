@@ -15,7 +15,7 @@ load_dotenv()
 @hydra.main(version_base=None, config_path="../../configs", config_name="fit_beta_interaction_regression")
 def main(cfg: DictConfig) -> None:
     prompt_stats_paths = [
-        build_run_dir(cfg.paths.outputs_root, dataset, model, variant, cfg.matrix.run_name)
+        build_run_dir(cfg.paths.outputs_root, dataset, model, variant, cfg.run_name)
         / cfg.prompt_stats_file
         for model in cfg.matrix.models
         for dataset in cfg.matrix.datasets

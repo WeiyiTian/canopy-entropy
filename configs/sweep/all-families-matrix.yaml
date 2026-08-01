@@ -1,7 +1,4 @@
 # @package _global_
-defaults:
-  - override /inference: a100
-
 sweep_name: all-families-matrix
 
 hydra:

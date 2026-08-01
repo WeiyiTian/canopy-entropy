@@ -1,0 +1,132 @@
+You are judging whether two attempted solutions to the same programming problem are semantically the same.
+
+Label each pair as similar or different. Similar solutions implement the same algorithmic approach and would behave the same way on the same inputs, even when identifier names, formatting, comments, or Python idioms differ. Different solutions use a genuinely different algorithm or data structure, or would behave differently on the same inputs.
+
+Surface features do not matter. Ignore variable naming, comments, docstrings, whitespace, and whether a loop is written as a comprehension. Judge the approach and the behaviour.
+
+Give one or two sentences of reasoning, then answer with exactly "Response: similar" or "Response: different". End your reply with ### on its own line, as in the examples.
+
+###
+Task: Write a function that returns the sum of all even numbers in a list.
+
+Response 1:
+```
+def task_func(numbers):
+    total = 0
+    for n in numbers:
+        if n % 2 == 0:
+            total += n
+    return total
+```
+
+Response 2:
+```
+def task_func(numbers):
+    return sum(x for x in numbers if x % 2 == 0)
+```
+
+Reasoning: Both filter for even values and sum them, with identical behaviour on every input. One writes an explicit accumulator loop and the other a generator expression, which is an idiom difference only.
+
+Response: similar
+###
+Task: Write a function that returns the largest value in a list.
+
+Response 1:
+```
+def task_func(values):
+    return max(values)
+```
+
+Response 2:
+```
+def task_func(values):
+    values = sorted(values)
+    return values[-1]
+```
+
+Reasoning: Both return the maximum, but one uses a single linear scan via the builtin while the other sorts the whole list first. These are different algorithms with different complexity.
+
+Response: different
+###
+Task: Write a function that counts how many times each word appears in a string.
+
+Response 1:
+```
+from collections import Counter
+def task_func(text):
+    return dict(Counter(text.split()))
+```
+
+Response 2:
+```
+def task_func(text):
+    counts = {}
+    for word in text.split():
+        counts[word] = counts.get(word, 0) + 1
+    return counts
+```
+
+Reasoning: Both split on whitespace and build a word-to-count dictionary with the same result. Using Counter rather than a manual dictionary is an implementation detail, not a different approach.
+
+Response: similar
+###
+Task: Write a function that returns the first n Fibonacci numbers.
+
+Response 1:
+```
+def task_func(n):
+    result = []
+    a, b = 0, 1
+    for _ in range(n):
+        result.append(a)
+        a, b = b, a + b
+    return result
+```
+
+Response 2:
+```
+def task_func(n):
+    def fib(k):
+        if k < 2:
+            return k
+        return fib(k - 1) + fib(k - 2)
+    return [fib(i) for i in range(n)]
+```
+
+Reasoning: Both produce the same sequence, but one builds it iteratively in a single pass while the other recomputes each term with naive recursion. The algorithms differ substantially.
+
+Response: different
+###
+Task: Write a function that reads a CSV file and returns the number of rows.
+
+Response 1:
+```
+import csv
+def task_func(path):
+    with open(path) as f:
+        return sum(1 for _ in csv.reader(f))
+```
+
+Response 2:
+```
+import csv
+def task_func(path):
+    with open(path) as f:
+        reader = csv.reader(f)
+        next(reader)
+        return sum(1 for _ in reader)
+```
+
+Reasoning: The approach is the same but the second skips a header row, so the two return different counts for the same file. That behavioural difference makes them different.
+
+Response: different
+###
+Task: {task_prompt}
+
+Response 1:
+{response_a}
+
+Response 2:
+{response_b}
+
+Reasoning:

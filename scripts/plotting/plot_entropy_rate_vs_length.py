@@ -12,7 +12,7 @@ from src.constants import ROLLOUT_SHARDS_ARTIFACT
 from src.generation_space.core import GenerationMetadata, PromptRollouts
 from src.generation_space.io import (
     build_prompt_shard_path,
-    build_rollout_metadata_path,
+    build_metadata_path,
     build_run_dir,
     verify_prompt_shards_complete,
 )
@@ -38,7 +38,7 @@ def compute_run_entropy_rate_trajectory(
     with positions[b] = bin_step * (b + 1). Returns None if rollout metadata is absent.
     """
     run_dir = build_run_dir(outputs_root, f"{dataset}.jsonl", family, variant, run_name)
-    metadata_path = build_rollout_metadata_path(run_dir)
+    metadata_path = build_metadata_path(run_dir)
     if not metadata_path.exists():
         return None
     metadata = GenerationMetadata.load(metadata_path)

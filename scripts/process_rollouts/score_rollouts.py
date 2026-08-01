@@ -12,7 +12,7 @@ from src.generation_space.core import GenerationMetadata, PromptRollouts
 from src.generation_space.io import (
     build_prompt_shard_dir,
     build_prompt_shard_path,
-    build_rollout_metadata_path,
+    build_metadata_path,
     build_run_dir,
     count_prompt_shards,
     reset_prompt_shards,
@@ -32,7 +32,7 @@ def main(cfg: DictConfig) -> None:
         cfg.model.variant,
         cfg.run_name,
     )
-    metadata_path = build_rollout_metadata_path(run_dir)
+    metadata_path = build_metadata_path(run_dir)
     if not metadata_path.exists():
         raise FileNotFoundError(
             f"Rollout metadata not found at {metadata_path}. Run generate_rollouts.py first."
