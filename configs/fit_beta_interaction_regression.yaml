@@ -7,6 +7,9 @@ run_name: ${matrix.run_name}
 tag: ${run_name}
 prompt_stats_file: prompt_rollout_stats.pt
 
+# reuse an existing panel csv
+resume: true
+
 r_script: scripts/stats/beta_interaction_regression.r
 
 output:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 import hydra
+import pandas as pd
 from omegaconf import DictConfig
 
 from src.generation_space.io import build_run_dir
@@ -14,22 +15,26 @@ load_dotenv()
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="fit_beta_interaction_regression")
 def main(cfg: DictConfig) -> None:
-    prompt_stats_paths = [
-        build_run_dir(cfg.paths.outputs_root, dataset, model, variant, cfg.run_name)
-        / cfg.prompt_stats_file
-        for model in cfg.matrix.models
-        for dataset in cfg.matrix.datasets
-        for variant in cfg.matrix.variants
-    ]
+    panel_csv = Path(cfg.output.panel_csv)
+    
+    if cfg.resume and panel_csv.exists():
+        panel = pd.read_csv(panel_csv)
+        print(f"reusing panel at {panel_csv}")
+    else:
+        prompt_stats_paths = [
+            build_run_dir(cfg.paths.outputs_root, dataset, model, variant, cfg.run_name)
+            / cfg.prompt_stats_file
+            for model in cfg.matrix.models
+            for dataset in cfg.matrix.datasets
+            for variant in cfg.matrix.variants
+        ]
+        panel = build_panel(prompt_stats_paths)
+        panel_csv.parent.mkdir(parents=True, exist_ok=True)
+        panel.to_csv(panel_csv, index=False)
+        print(f"wrote panel to {panel_csv}")
 
-    panel = build_panel(prompt_stats_paths)
     print(f"panel: {len(panel)} rows across {panel['prompt_id'].nunique()} prompts, "
           f"{panel[['model_name', 'model_variant']].drop_duplicates().shape[0]} (model, variant) pairs.")
-
-    panel_csv = Path(cfg.output.panel_csv)
-    panel_csv.parent.mkdir(parents=True, exist_ok=True)
-    panel.to_csv(panel_csv, index=False)
-    print(f"wrote panel to {panel_csv}")
 
     if shutil.which("Rscript") is None:
         raise RuntimeError("Rscript not found on PATH; install R to run the beta regression.")

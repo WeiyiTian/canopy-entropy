@@ -8,8 +8,14 @@ run_name: ${matrix.run_name}
 tag: ${run_name}
 prompt_stats_file: prompt_rollout_stats.pt
 
+# reuse an existing panel csv
+resume: true
+
+r_script: scripts/stats/rse_ordered_beta_regression.r
+
 output:
-  panel_csv: ${paths.results_root}/stats/${tag}/rse_panel_${judge.name}.csv
+  panel_csv: ${paths.results_root}/stats/${tag}/${judge.name}/rse_panel.csv
+  r_log: ${paths.results_root}/stats/${tag}/${judge.name}/rse_ordered_beta_regression.log
 
 hydra:
   job:
