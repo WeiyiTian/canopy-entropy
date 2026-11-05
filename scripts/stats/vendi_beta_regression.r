@@ -3,8 +3,7 @@ library(DHARMa)
 library(splines)
 library(dplyr)
 
-# df <- read.csv("./panel_vendi_score.csv")
-df <- read.csv("./topk1000_panel.csv")
+df <- read.csv("./panel.csv")
 
 # ============================================================
 # Preprocessing
@@ -69,8 +68,8 @@ fit_vendi_beta <- glmmTMB(
   
   dispformula = ~
     model_variant * task +
-    ns(invN_sc, df = 4) * model_variant +
-    R_sc * model_variant + 
+    ns(invN_sc, df = 3) +
+    R_sc * model_variant +
     model_name,
   
   family = beta_family(link = "logit"),
@@ -82,7 +81,8 @@ summary(fit_vendi_beta)
 
 sim_vendi_beta <- simulateResiduals(
   fittedModel = fit_vendi_beta,
-  n = 1000
+  n = 10000,
+  seed = 93
 )
 
 plot(sim_vendi_beta)

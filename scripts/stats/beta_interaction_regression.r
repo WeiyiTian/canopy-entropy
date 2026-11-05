@@ -59,7 +59,8 @@ summary(fit_beta_disp_R_interaction)
 
 sim_beta_R_int <- simulateResiduals(
   fit_beta_disp_R_interaction,
-  n = 1000
+  n = 10000,
+  seed = 93
 )
 
 plot(sim_beta_R_int)

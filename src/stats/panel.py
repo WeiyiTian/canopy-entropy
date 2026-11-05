@@ -33,6 +33,7 @@ def build_panel(prompt_stats_paths: list[Path]) -> pd.DataFrame:
           responses among the M rollouts, bounded in `[1, M]`.
         - R_bar: mean per-rollout entropy rate `R_bar_{tmp}` for this prompt.
         - N_bar: mean rollout length `(1/M) * sum_i N^(i)` for this prompt.
+        - sd_logN: sample standard deviation of `log N^(i)` across the M rollouts.
         - M: number of raw rollouts for this prompt.
         - prompt_uid: `"{task}/{prompt_id}"`, a unique cross-task prompt identifier.
 
@@ -103,11 +104,13 @@ def _load_panel_block(prompt_stats_path: Path) -> pd.DataFrame:
         - VS: Vendi Score `exp(H_{tmp})` for this prompt.
         - R_bar: mean per-rollout entropy rate `R_bar_{tmp}` for this prompt.
         - N_bar: mean rollout length `(1/M) * sum_i N^(i)` for this prompt.
+        - sd_logN: sample standard deviation of `log N^(i)` across the M rollouts.
         - M: number of raw rollouts for this prompt.
     """
     metadata = GenerationMetadata.load(build_metadata_path(prompt_stats_path.parent))
     prompt_results: list[PromptRolloutStats] = load_prompt_stats(prompt_stats_path, device="cpu")
-    
+    assert all(int(s.raw_sequence_lengths.min()) >= 1 for s in prompt_results), f"zero-length rollout in {prompt_stats_path}"
+
     rows = [
         {
             "task": Path(metadata.prompt_file).stem,
@@ -119,6 +122,7 @@ def _load_panel_block(prompt_stats_path: Path) -> pd.DataFrame:
             "VS": _to_float(stats.raw_metrics.vendi_entropy.exp()),
             "R_bar": _to_float(stats.raw_metrics.entropy_rate),
             "N_bar": _to_float(stats.raw_sequence_lengths.to(torch.float32).mean()),
+            "sd_logN": _to_float(stats.raw_sequence_lengths.to(torch.float32).log().std()),
             "M": int(stats.raw_sequence_lengths.numel()),
         }
         for prompt_id, stats in enumerate(prompt_results)

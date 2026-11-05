@@ -66,8 +66,8 @@ def generate_step_scores(
         - prompt_token_ids: Tensor of shape [P] containing the token ids of the rendered 
             generation prompt.
     """
-    rendered_prompts = [
-        _render_generation_prompt(
+    tokenized_prompts = [
+        _tokenize_generation_prompt(
             prompt=prompt,
             tokenizer=tokenizer,
             enable_thinking=enable_thinking,
@@ -79,7 +79,7 @@ def generate_step_scores(
     if backend == "local":
         return [
             _generate_local_step_scores(
-                prompt=prompt,
+                prompt_token_ids=prompt_token_ids,
                 model=model,
                 tokenizer=tokenizer,
                 n_samples=n_samples,
@@ -92,12 +92,12 @@ def generate_step_scores(
                 seed=seed,
                 device=device,
             )
-            for prompt in rendered_prompts
+            for prompt_token_ids in tokenized_prompts
         ]
 
     elif backend == "vllm":
         return _generate_vllm_step_scores_batch(
-            prompts=rendered_prompts,
+            tokenized_prompts=tokenized_prompts,
             llm=model,
             tokenizer=tokenizer,
             n_samples=n_samples,
@@ -114,35 +114,32 @@ def generate_step_scores(
     raise ValueError("backend must be one of {'local', 'vllm'}")
 
 
-def _render_generation_prompt(
+def _tokenize_generation_prompt(
     prompt: str,
     tokenizer: AutoTokenizer,
     enable_thinking: bool | None,
     use_chat_template: bool,
-) -> str:
+) -> list[int]:
     """
-    Renders one user prompt into the string passed to generation.
+    Tokenizes one user prompt into the token ids passed to generation.
 
     Args:
         prompt: Raw user prompt.
         tokenizer: Tokenizer whose chat template is used when available.
         enable_thinking: Optional chat-template hint for templates that support
             reasoning-mode control through `enable_thinking`.
-        use_chat_template: When False (for base models), return the prompt unchanged.
+        use_chat_template: When False (for base models), tokenize the prompt as is.
 
     Returns:
-        Rendered generation prompt string. If `use_chat_template` is False,
-        returns `prompt` unchanged.
-
-    Notes:
-        This function only renders text; it does not tokenize.
+        Generation prompt token ids. If `use_chat_template` is False, returns the
+        tokenized prompt with the tokenizer's default special tokens.
     """
     if not use_chat_template:
-        return prompt
+        return tokenizer(prompt)["input_ids"]
 
     messages = [{"role": "user", "content": prompt}]
     template_kwargs = {
-        "tokenize": False,
+        "tokenize": True,
         "add_generation_prompt": True,
     }
     if enable_thinking is not None:
@@ -153,7 +150,7 @@ def _render_generation_prompt(
 
 @torch.inference_mode()
 def _generate_vllm_step_scores_batch(
-    prompts: list[str],
+    tokenized_prompts: list[list[int]],
     llm: LLM,
     tokenizer: AutoTokenizer,
     n_samples: int,
@@ -170,9 +167,9 @@ def _generate_vllm_step_scores_batch(
     Generates M sampled completions and per-step candidate scores with vLLM.
 
     Args:
-        prompts: Rendered prompts (N).
+        tokenized_prompts: Generation prompt token ids (N).
         llm: Initialized vLLM engine.
-        tokenizer: Tokenizer used to recover prompt token ids.
+        tokenizer: Tokenizer used to decode completion texts.
         n_samples: Number of completions to generate for each prompt (M).
         max_new_tokens: Maximum number of generated tokens per completion.
         temperature: Sampling temperature.
@@ -185,7 +182,7 @@ def _generate_vllm_step_scores_batch(
         device: Device used for returned tensors.
 
     Returns:
-        List of per-prompt tuples preserving `prompts` order:
+        List of per-prompt tuples preserving `tokenized_prompts` order:
         each (generated_texts, sequence_step_scores, sequence_lengths, generated_token_ids, prompt_token_ids)
         - generated_texts: List of M decoded strings.
         - sequence_step_scores: List of M tensors, where the i-th tensor has shape [T_i, K_i_max] 
@@ -207,10 +204,10 @@ def _generate_vllm_step_scores_batch(
         else torch.device(device)
     )
 
-    generated_texts_by_prompt = [[] for _ in prompts]
-    sequence_step_scores_by_prompt = [[] for _ in prompts]
-    sequence_lengths_chunks_by_prompt = [[] for _ in prompts]
-    generated_token_ids_by_prompt = [[] for _ in prompts]
+    generated_texts_by_prompt = [[] for _ in tokenized_prompts]
+    sequence_step_scores_by_prompt = [[] for _ in tokenized_prompts]
+    sequence_lengths_chunks_by_prompt = [[] for _ in tokenized_prompts]
+    generated_token_ids_by_prompt = [[] for _ in tokenized_prompts]
     
     vllm_top_k = -1 if top_k is None else top_k
     vllm_top_p = 1.0 if top_p is None else top_p
@@ -229,7 +226,7 @@ def _generate_vllm_step_scores_batch(
         )
 
         request_outputs = llm.generate(
-            prompts=prompts,
+            prompts=[{"prompt_token_ids": ids} for ids in tokenized_prompts],
             sampling_params=sampling_params,
             use_tqdm=True,
         ) # list[RequestOutput] of N
@@ -250,8 +247,8 @@ def _generate_vllm_step_scores_batch(
             generated_token_ids_by_prompt[prompt_idx].extend(generated_token_ids)
 
     prompt_results = []
-    for prompt_idx, prompt in enumerate(prompts):
-        prompt_token_ids = tokenizer(prompt, return_tensors="pt")["input_ids"][0].to(device=device)
+    for prompt_idx, ids in enumerate(tokenized_prompts):
+        prompt_token_ids = torch.tensor(ids, dtype=torch.long, device=device)
         prompt_results.append(
             (
                 # list[str], length M
@@ -358,7 +355,7 @@ def _pad_vllm_step_scores(
 
 @torch.inference_mode()
 def _generate_local_step_scores(
-    prompt: str,
+    prompt_token_ids: list[int],
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
     n_samples: int,
@@ -375,7 +372,7 @@ def _generate_local_step_scores(
     Generates M sampled completions and per-step candidate scores with a local HF model.
 
     Args:
-        prompt: Rendered prompt.
+        prompt_token_ids: Generation prompt token ids.
         model: Initialized causal LM.
         tokenizer: Tokenizer for the causal LM.
         n_samples: Number of completions to generate for the prompt (M).
@@ -408,8 +405,9 @@ def _generate_local_step_scores(
         device = model.device
     device = torch.device(device)
 
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    prompt_len = inputs["input_ids"].shape[1]
+    input_ids = torch.tensor([prompt_token_ids], dtype=torch.long, device=device)
+    inputs = {"input_ids": input_ids, "attention_mask": torch.ones_like(input_ids)}
+    prompt_len = input_ids.shape[1]
     eos_token_id = getattr(model.generation_config, "eos_token_id", tokenizer.eos_token_id)
 
     generated_texts = []
@@ -469,7 +467,7 @@ def _generate_local_step_scores(
         sequence_lengths_chunks.append(cur_sequence_lengths)
 
     sequence_lengths = torch.cat(sequence_lengths_chunks, dim=0)
-    prompt_token_ids = inputs["input_ids"][0].clone()
+    prompt_token_ids = input_ids[0].clone()
     return generated_texts, sequence_step_logprobs, sequence_lengths, generated_token_ids, prompt_token_ids
 
 

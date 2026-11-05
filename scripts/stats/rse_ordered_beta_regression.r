@@ -212,8 +212,8 @@ plot(
 testUniformity(sim_ordbeta)
 testDispersion(sim_ordbeta)
 
-# testOutliers(
-#   sim_ordbeta,
-#   type = "bootstrap",
-#   nBoot = 1000
-# )
+testOutliers(
+  sim_ordbeta,
+  type = "bootstrap",
+  nBoot = 1000
+)

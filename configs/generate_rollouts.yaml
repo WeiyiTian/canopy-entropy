@@ -14,6 +14,7 @@ force: false
 sweep_name: default
 generate_mem_gb: 100
 generate_timeout_min: 360
+generate_max_num_timeout: 1
 
 wandb:
   run_name: ${run_name}
